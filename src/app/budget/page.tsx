@@ -49,7 +49,7 @@ export default function BudgetFormPage() {
 
   // --- สำหรับ UX ของกล่องค้นหา ---
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const [highlight, setHighlight] = useState<number>(-1); // index ของ item ที่โฟกัสอยู่
+  const [highlight, setHighlight] = useState<number>(-1);
   const [openDropdown, setOpenDropdown] = useState<boolean>(false);
   const dropdownRef = useRef<HTMLUListElement | null>(null);
 
@@ -134,6 +134,13 @@ export default function BudgetFormPage() {
     })();
   }, [selectedItemId]);
 
+  // ✅ ถ้ามีหน่วยเดียว ให้ auto-select และแสดงแบบ read-only
+  useEffect(() => {
+    if (units.length === 1) {
+      setSelectedUnitId(units[0].stock_item_unit_id);
+    }
+  }, [units]);
+
   // เมื่อมี unit + asOfDate -> ดึงราคาต่อหน่วย
   useEffect(() => {
     if (!selectedItemId || !selectedUnitId || !asOfDate) return;
@@ -177,9 +184,9 @@ export default function BudgetFormPage() {
       departments.length === 1
         ? Number(departments[0].department_id)
         : (selectedDeptId ? Number(selectedDeptId) : null);
-  
+
     const unit = units.find(u => u.stock_item_unit_id === selectedUnitId);
-  
+
     const payload = {
       meta: {
         bdg_year: selectedYear || null,
@@ -191,7 +198,7 @@ export default function BudgetFormPage() {
         stock_item_unit_id: selectedUnitId || null,
         unit_qty: unit ? unit.unit_qty : null,
         unit_cost: unitCost,
-        basic, // { item_name, item_unit, item_type_name, stock_class_name, stock_sub_class_name, stock_item_ed_type_name }
+        basic, // meta item fields
       },
       periods: {
         qty: {
@@ -216,7 +223,7 @@ export default function BudgetFormPage() {
       },
       current_qty: num(currentQty),
     };
-  
+
     try {
       const res = await fetch('/api/budget-requests', {
         method: 'POST',
@@ -229,14 +236,12 @@ export default function BudgetFormPage() {
         return;
       }
       alert(`บันทึกสำเร็จ\nstock_plan_id: ${json.data.stock_plan_id}\nstock_plan_list_id: ${json.data.stock_plan_list_id}`);
-      // จะ reset หรือไม่แล้วแต่ UX
-      // resetAll();
     } catch (e: any) {
       alert('เกิดข้อผิดพลาดในการบันทึก: ' + e.message);
     }
   }
 
-  // เลือก item (จากคลิกหรือกด Enter)
+  // เลือก item
   const chooseItem = (it: ItemRow) => {
     setSelectedItemId(Number(it.item_id));
     setSearch(it.item_name);
@@ -264,6 +269,8 @@ export default function BudgetFormPage() {
       setHighlight(-1);
     }
   };
+
+  const selectedUnit = units.find(u => u.stock_item_unit_id === selectedUnitId) || null;
 
   return (
     <div className="max-w-5xl mx-auto p-6">
@@ -357,7 +364,7 @@ export default function BudgetFormPage() {
                         key={it.item_id}
                         role="button"
                         tabIndex={0}
-                        onMouseDown={(e) => e.preventDefault()} // ป้องกัน blur ก่อน click
+                        onMouseDown={(e) => e.preventDefault()}
                         onClick={() => chooseItem(it)}
                         className={`px-3 py-2 flex items-center justify-between cursor-pointer transition
                           ${idx === highlight ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
@@ -398,39 +405,72 @@ export default function BudgetFormPage() {
             </div>
           )}
 
+          {/* 🔽 หน่วยบรรจุ / ขนาดบรรจุ / ราคาต่อหน่วย */}
           {units.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="font-medium">หน่วยบรรจุ (ที่ต้องการซื้อ)</label>
-                <select
-                  className="border rounded p-2 w-full mt-1"
-                  value={selectedUnitId || ''}
-                  onChange={e => setSelectedUnitId(Number(e.target.value))}
-                >
-                  <option value="">— เลือกหน่วย —</option>
-                  {units.map(u => (
-                    <option key={u.stock_item_unit_id} value={u.stock_item_unit_id}>
-                      {u.item_unit_name} (x{u.unit_qty})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="font-medium">ขนาดบรรจุ</label>
-                <input
-                  className="border rounded p-2 w-full mt-1 bg-gray-100"
-                  value={(units.find(u => u.stock_item_unit_id === selectedUnitId)?.unit_qty ?? '') as any}
-                  readOnly
-                />
-              </div>
-              <div>
-                <label className="font-medium">ราคาต่อหน่วยล่าสุด</label>
-                <input
-                  className="border rounded p-2 w-full mt-1 bg-gray-100"
-                  value={unitCost ?? ''}
-                  readOnly
-                />
-              </div>
+              {/* ถ้ามีหน่วยเดียว => read-only */}
+              {units.length === 1 ? (
+                <>
+                  <div>
+                    <label className="font-medium">หน่วยบรรจุ (ที่ต้องการซื้อ)</label>
+                    <input
+                      className="border rounded p-2 w-full mt-1 bg-gray-100"
+                      value={selectedUnit ? `${selectedUnit.item_unit_name} (x${selectedUnit.unit_qty})` : ''}
+                      readOnly
+                    />
+                  </div>
+                  <div>
+                    <label className="font-medium">ขนาดบรรจุ</label>
+                    <input
+                      className="border rounded p-2 w-full mt-1 bg-gray-100"
+                      value={selectedUnit ? selectedUnit.unit_qty : ''}
+                      readOnly
+                    />
+                  </div>
+                  <div>
+                    <label className="font-medium">ราคาต่อหน่วยล่าสุด</label>
+                    <input
+                      className="border rounded p-2 w-full mt-1 bg-gray-100"
+                      value={unitCost ?? ''}
+                      readOnly
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <label className="font-medium">หน่วยบรรจุ (ที่ต้องการซื้อ)</label>
+                    <select
+                      className="border rounded p-2 w-full mt-1"
+                      value={selectedUnitId || ''}
+                      onChange={e => setSelectedUnitId(Number(e.target.value))}
+                    >
+                      <option value="">— เลือกหน่วย —</option>
+                      {units.map(u => (
+                        <option key={u.stock_item_unit_id} value={u.stock_item_unit_id}>
+                          {u.item_unit_name} (x{u.unit_qty})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="font-medium">ขนาดบรรจุ</label>
+                    <input
+                      className="border rounded p-2 w-full mt-1 bg-gray-100"
+                      value={selectedUnit ? selectedUnit.unit_qty : ''}
+                      readOnly
+                    />
+                  </div>
+                  <div>
+                    <label className="font-medium">ราคาต่อหน่วยล่าสุด</label>
+                    <input
+                      className="border rounded p-2 w-full mt-1 bg-gray-100"
+                      value={unitCost ?? ''}
+                      readOnly
+                    />
+                  </div>
+                </>
+              )}
             </div>
           )}
 
