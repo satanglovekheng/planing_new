@@ -38,20 +38,32 @@ export default function BudgetFormPage() {
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
   const [basic, setBasic] = useState<ItemBasic | null>(null);
   const [units, setUnits] = useState<ItemUnit[]>([]);
-  const [selectedUnitId, setSelectedUnitId] = useState<number | ''>('');
-  const [asOfDate, setAsOfDate] = useState<string>('');
-  const [unitCost, setUnitCost] = useState<number | null>(null);
+  const [selectedUnitId, setSelectedUnitId] = useState<number | null>(null);
+  const [unitCost, setUnitCost] = useState<number | null>(null);      // ราคา/หน่วยพื้นฐาน จาก API
+  const [unitCostSum, setUnitCostSum] = useState<number | null>(null); // ราคา/แพ็ก (หน่วยบรรจุที่เลือก)
 
-  const [periodQty, setPeriodQty] = useState({ p1: '', p2: '', p3: '', p4: '' });
-  const [periodAmount, setPeriodAmount] = useState({ a1: '', a2: '', a3: '', a4: '' });
+  const [periodQty, setPeriodQty] = useState({ p1: '', p2: '', p3: '', p4: '' }); // string input
+  const [periodAmount, setPeriodAmount] = useState({ a1: '', a2: '', a3: '', a4: '' }); // auto-filled
   const [historyQty, setHistoryQty] = useState({ y1: '', y2: '', y3: '' });
   const [currentQty, setCurrentQty] = useState('');
 
-  // --- สำหรับ UX ของกล่องค้นหา ---
+  // --- UX ของกล่องค้นหา ---
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [highlight, setHighlight] = useState<number>(-1);
   const [openDropdown, setOpenDropdown] = useState<boolean>(false);
   const dropdownRef = useRef<HTMLUListElement | null>(null);
+
+  // utils
+  const parseNum = (v: string | number | null | undefined): number | null => {
+    if (v === '' || v === null || v === undefined) return null;
+    const n = Number(String(v).replace(/,/g, ''));
+    return Number.isFinite(n) ? n : null;
+  };
+  const sumNums = (vals: Array<number | null>): number =>
+    vals.filter((v): v is number => v !== null && Number.isFinite(v)).reduce((a, b) => a + b, 0);
+
+  const formatMoney = (n: number | null): string =>
+    n === null ? '' : n.toFixed(2);
 
   // Load Step 1 options
   useEffect(() => {
@@ -128,27 +140,77 @@ export default function BudgetFormPage() {
         fetch(`/api/item/${selectedItemId}/units`).then(r => r.json()),
       ]);
       if (b.success) setBasic(b.data);
-      if (u.success) setUnits(u.data);
-      setSelectedUnitId('');
+      if (u.success) {
+        setUnits(u.data ?? []);
+        const first = (u.data?.[0]?.stock_item_unit_id ?? null) as number | null;
+        setSelectedUnitId(first);
+      } else {
+        setUnits([]);
+        setSelectedUnitId(null);
+      }
       setUnitCost(null);
+      setUnitCostSum(null);
     })();
   }, [selectedItemId]);
 
-  // ✅ ถ้ามีหน่วยเดียว ให้ auto-select และแสดงแบบ read-only
+  // ดึงราคา/หน่วยพื้นฐานของ item+unit ที่เลือก
   useEffect(() => {
-    if (units.length === 1) {
-      setSelectedUnitId(units[0].stock_item_unit_id);
-    }
-  }, [units]);
+    if (!selectedItemId || selectedUnitId == null) return;
 
-  // เมื่อมี unit + asOfDate -> ดึงราคาต่อหน่วย
+    const url = `/api/item/${selectedItemId}/unit-cost?unitId=${selectedUnitId}`;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const r = await fetch(url);
+        const res = await r.json();
+        if (cancelled) return;
+
+        const price = res?.success ? Number(res.data.unit_cost) : null;
+        setUnitCost(Number.isFinite(price as number) ? (price as number) : null);
+      } catch {
+        if (!cancelled) setUnitCost(null);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [selectedItemId, selectedUnitId]);
+
+  // หา unit_qty ของหน่วยบรรจุที่เลือก
+  const selectedUnitQty: number | null = (() => {
+    if (selectedUnitId == null) return null;
+    const u = units.find(x => x.stock_item_unit_id === selectedUnitId);
+    return u ? u.unit_qty : null;
+  })();
+
+  // คำนวณ "ราคาต่อหน่วยล่าสุด" (ราคา/แพ็ก) = unitCost (ต่อหน่วยพื้นฐาน) * unit_qty
   useEffect(() => {
-    if (!selectedItemId || !selectedUnitId || !asOfDate) return;
-    const url = `/api/item/${selectedItemId}/unit-cost?unitId=${selectedUnitId}&asOf=${asOfDate}`;
-    fetch(url).then(r => r.json()).then(res => {
-      if (res.success) setUnitCost(res.data.unit_cost);
-    });
-  }, [selectedItemId, selectedUnitId, asOfDate]);
+    if (unitCost != null && selectedUnitQty != null) {
+      setUnitCostSum(unitCost * selectedUnitQty);
+    } else {
+      setUnitCostSum(null);
+    }
+  }, [unitCost, selectedUnitQty]);
+
+  // คำนวณ "ราคารวมตามไตรมาส" อัตโนมัติ = qty[ไตรมาส] * unitCostSum
+  useEffect(() => {
+    if (unitCostSum == null) {
+      // ถ้าไม่มีราคา ก็เคลียร์ค่า amount เพื่อกันความสับสน
+      setPeriodAmount({ a1: '', a2: '', a3: '', a4: '' });
+      return;
+    }
+    const q1 = parseNum(periodQty.p1);
+    const q2 = parseNum(periodQty.p2);
+    const q3 = parseNum(periodQty.p3);
+    const q4 = parseNum(periodQty.p4);
+
+    const a1 = q1 !== null ? formatMoney(q1 * unitCostSum) : '';
+    const a2 = q2 !== null ? formatMoney(q2 * unitCostSum) : '';
+    const a3 = q3 !== null ? formatMoney(q3 * unitCostSum) : '';
+    const a4 = q4 !== null ? formatMoney(q4 * unitCostSum) : '';
+
+    setPeriodAmount({ a1, a2, a3, a4 });
+  }, [periodQty, unitCostSum]);
 
   function resetAll() {
     setStep(1);
@@ -159,9 +221,9 @@ export default function BudgetFormPage() {
     setSelectedItemId(null);
     setBasic(null);
     setUnits([]);
-    setSelectedUnitId('');
-    setAsOfDate('');
+    setSelectedUnitId(null);
     setUnitCost(null);
+    setUnitCostSum(null);
     setPeriodQty({ p1: '', p2: '', p3: '', p4: '' });
     setPeriodAmount({ a1: '', a2: '', a3: '', a4: '' });
     setHistoryQty({ y1: '', y2: '', y3: '' });
@@ -170,14 +232,21 @@ export default function BudgetFormPage() {
     setHighlight(-1);
   }
 
-  // helpers สำหรับ save
-  const num = (v: any) => {
-    if (v === '' || v === null || v === undefined) return null;
-    const n = Number(String(v).replace(/,/g, ''));
-    return Number.isFinite(n) ? n : null;
-  };
-  const sum = (...vals: (string | number)[]) =>
-    vals.map(num).filter(v => v !== null).reduce((a, b) => a + (b as number), 0);
+  const sumQtyNumber = (() => {
+    const q1 = parseNum(periodQty.p1);
+    const q2 = parseNum(periodQty.p2);
+    const q3 = parseNum(periodQty.p3);
+    const q4 = parseNum(periodQty.p4);
+    return sumNums([q1, q2, q3, q4]);
+  })();
+
+  const sumAmountNumber = (() => {
+    const a1 = parseNum(periodAmount.a1);
+    const a2 = parseNum(periodAmount.a2);
+    const a3 = parseNum(periodAmount.a3);
+    const a4 = parseNum(periodAmount.a4);
+    return sumNums([a1, a2, a3, a4]);
+  })();
 
   async function handleSave() {
     const deptId =
@@ -191,37 +260,36 @@ export default function BudgetFormPage() {
       meta: {
         bdg_year: selectedYear || null,
         department_id: deptId,
-        as_of_date: asOfDate || null,
       },
       item: {
         item_id: selectedItemId,
         stock_item_unit_id: selectedUnitId || null,
         unit_qty: unit ? unit.unit_qty : null,
-        unit_cost: unitCost,
-        basic, // meta item fields
+        unit_cost: unitCostSum, // ราคา/แพ็ก (หน่วยบรรจุที่เลือก)
+        basic,
       },
       periods: {
         qty: {
-          q1: num(periodQty.p1),
-          q2: num(periodQty.p2),
-          q3: num(periodQty.p3),
-          q4: num(periodQty.p4),
-          total: sum(periodQty.p1, periodQty.p2, periodQty.p3, periodQty.p4),
+          q1: parseNum(periodQty.p1),
+          q2: parseNum(periodQty.p2),
+          q3: parseNum(periodQty.p3),
+          q4: parseNum(periodQty.p4),
+          total: sumQtyNumber,
         },
         amount: {
-          q1: num(periodAmount.a1),
-          q2: num(periodAmount.a2),
-          q3: num(periodAmount.a3),
-          q4: num(periodAmount.a4),
-          total: sum(periodAmount.a1, periodAmount.a2, periodAmount.a3, periodAmount.a4),
+          q1: parseNum(periodAmount.a1),
+          q2: parseNum(periodAmount.a2),
+          q3: parseNum(periodAmount.a3),
+          q4: parseNum(periodAmount.a4),
+          total: sumAmountNumber,
         },
       },
       history: {
-        last_1_year_qty: num(historyQty.y1),
-        last_2_year_qty: num(historyQty.y2),
-        last_3_year_qty: num(historyQty.y3),
+        last_1_year_qty: parseNum(historyQty.y1),
+        last_2_year_qty: parseNum(historyQty.y2),
+        last_3_year_qty: parseNum(historyQty.y3),
       },
-      current_qty: num(currentQty),
+      current_qty: parseNum(currentQty),
     };
 
     try {
@@ -241,7 +309,7 @@ export default function BudgetFormPage() {
     }
   }
 
-  // เลือก item
+  // เลือก item จากผลค้นหา
   const chooseItem = (it: ItemRow) => {
     setSelectedItemId(Number(it.item_id));
     setSearch(it.item_name);
@@ -269,8 +337,6 @@ export default function BudgetFormPage() {
       setHighlight(-1);
     }
   };
-
-  const selectedUnit = units.find(u => u.stock_item_unit_id === selectedUnitId) || null;
 
   return (
     <div className="max-w-5xl mx-auto p-6">
@@ -306,9 +372,7 @@ export default function BudgetFormPage() {
             <button
               disabled={!canNext}
               onClick={() => setStep(2)}
-              className={`px-4 py-2 rounded text-white transition ${
-                canNext ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-400 cursor-not-allowed'
-              }`}>
+              className={`px-4 py-2 rounded text-white transition ${canNext ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-400 cursor-not-allowed'}`}>
               ถัดไป
             </button>
           </div>
@@ -383,14 +447,11 @@ export default function BudgetFormPage() {
               </div>
             </div>
 
-            <div>
-              <label className="font-medium">เลือกวันที่อ้างอิงราคา</label>
-              <input
-                type="date"
-                className="border rounded p-2 mt-1"
-                value={asOfDate}
-                onChange={e => setAsOfDate(e.target.value)}
-              />
+            <div className="pb-2">
+              <label className="font-medium block">อ้างอิงราคา</label>
+              <div className="mt-1 px-3 py-2 border rounded bg-gray-50 text-sm">
+                ณ วันนี้ ({new Date().toISOString().slice(0, 10)})
+              </div>
             </div>
           </div>
 
@@ -405,72 +466,42 @@ export default function BudgetFormPage() {
             </div>
           )}
 
-          {/* 🔽 หน่วยบรรจุ / ขนาดบรรจุ / ราคาต่อหน่วย */}
           {units.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* ถ้ามีหน่วยเดียว => read-only */}
-              {units.length === 1 ? (
-                <>
-                  <div>
-                    <label className="font-medium">หน่วยบรรจุ (ที่ต้องการซื้อ)</label>
-                    <input
-                      className="border rounded p-2 w-full mt-1 bg-gray-100"
-                      value={selectedUnit ? `${selectedUnit.item_unit_name} (x${selectedUnit.unit_qty})` : ''}
-                      readOnly
-                    />
-                  </div>
-                  <div>
-                    <label className="font-medium">ขนาดบรรจุ</label>
-                    <input
-                      className="border rounded p-2 w-full mt-1 bg-gray-100"
-                      value={selectedUnit ? selectedUnit.unit_qty : ''}
-                      readOnly
-                    />
-                  </div>
-                  <div>
-                    <label className="font-medium">ราคาต่อหน่วยล่าสุด</label>
-                    <input
-                      className="border rounded p-2 w-full mt-1 bg-gray-100"
-                      value={unitCost ?? ''}
-                      readOnly
-                    />
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div>
-                    <label className="font-medium">หน่วยบรรจุ (ที่ต้องการซื้อ)</label>
-                    <select
-                      className="border rounded p-2 w-full mt-1"
-                      value={selectedUnitId || ''}
-                      onChange={e => setSelectedUnitId(Number(e.target.value))}
-                    >
-                      <option value="">— เลือกหน่วย —</option>
-                      {units.map(u => (
-                        <option key={u.stock_item_unit_id} value={u.stock_item_unit_id}>
-                          {u.item_unit_name} (x{u.unit_qty})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="font-medium">ขนาดบรรจุ</label>
-                    <input
-                      className="border rounded p-2 w-full mt-1 bg-gray-100"
-                      value={selectedUnit ? selectedUnit.unit_qty : ''}
-                      readOnly
-                    />
-                  </div>
-                  <div>
-                    <label className="font-medium">ราคาต่อหน่วยล่าสุด</label>
-                    <input
-                      className="border rounded p-2 w-full mt-1 bg-gray-100"
-                      value={unitCost ?? ''}
-                      readOnly
-                    />
-                  </div>
-                </>
-              )}
+              <div>
+                <label className="font-medium">หน่วยบรรจุ (ที่ต้องการซื้อ)</label>
+                <select
+                  className="border rounded p-2 w-full mt-1"
+                  value={selectedUnitId ?? ''} // '' เพื่อแสดง placeholder เมื่อ null
+                  onChange={e => {
+                    const v = e.target.value;
+                    setSelectedUnitId(v ? Number(v) : null);
+                  }}
+                >
+                  <option value="">— เลือกหน่วย —</option>
+                  {units.map(u => (
+                    <option key={u.stock_item_unit_id} value={u.stock_item_unit_id}>
+                      {u.item_unit_name} (x{u.unit_qty})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="font-medium">ขนาดบรรจุ</label>
+                <input
+                  className="border rounded p-2 w-full mt-1 bg-gray-100"
+                  value={selectedUnitQty ?? ''}
+                  readOnly
+                />
+              </div>
+              <div>
+                <label className="font-medium">ราคาต่อหน่วยล่าสุด</label>
+                <input
+                  className="border rounded p-2 w-full mt-1 bg-gray-100"
+                  value={unitCostSum != null ? formatMoney(unitCostSum) : ''}
+                  readOnly
+                />
+              </div>
             </div>
           )}
 
@@ -478,37 +509,99 @@ export default function BudgetFormPage() {
             <div className="border rounded-xl p-4">
               <h3 className="font-semibold mb-2">จำนวนตามไตรมาส</h3>
               <div className="grid grid-cols-2 gap-3">
-                <label>ไตรมาส 1<input className="border rounded p-2 w-full mt-1" value={periodQty.p1} onChange={e => setPeriodQty({ ...periodQty, p1: e.target.value })} /></label>
-                <label>ไตรมาส 2<input className="border rounded p-2 w-full mt-1" value={periodQty.p2} onChange={e => setPeriodQty({ ...periodQty, p2: e.target.value })} /></label>
-                <label>ไตรมาส 3<input className="border rounded p-2 w-full mt-1" value={periodQty.p3} onChange={e => setPeriodQty({ ...periodQty, p3: e.target.value })} /></label>
-                <label>ไตรมาส 4<input className="border rounded p-2 w-full mt-1" value={periodQty.p4} onChange={e => setPeriodQty({ ...periodQty, p4: e.target.value })} /></label>
+                <label>ไตรมาส 1
+                  <input className="border rounded p-2 w-full mt-1"
+                    value={periodQty.p1}
+                    onChange={e => setPeriodQty({ ...periodQty, p1: e.target.value })} />
+                </label>
+                <label>ไตรมาส 2
+                  <input className="border rounded p-2 w-full mt-1"
+                    value={periodQty.p2}
+                    onChange={e => setPeriodQty({ ...periodQty, p2: e.target.value })} />
+                </label>
+                <label>ไตรมาส 3
+                  <input className="border rounded p-2 w-full mt-1"
+                    value={periodQty.p3}
+                    onChange={e => setPeriodQty({ ...periodQty, p3: e.target.value })} />
+                </label>
+                <label>ไตรมาส 4
+                  <input className="border rounded p-2 w-full mt-1"
+                    value={periodQty.p4}
+                    onChange={e => setPeriodQty({ ...periodQty, p4: e.target.value })} />
+                </label>
               </div>
             </div>
 
             <div className="border rounded-xl p-4">
               <h3 className="font-semibold mb-2">ราคารวมตามไตรมาส</h3>
               <div className="grid grid-cols-2 gap-3">
-                <label>ไตรมาส 1<input className="border rounded p-2 w-full mt-1" value={periodAmount.a1} onChange={e => setPeriodAmount({ ...periodAmount, a1: e.target.value })} /></label>
-                <label>ไตรมาส 2<input className="border rounded p-2 w-full mt-1" value={periodAmount.a2} onChange={e => setPeriodAmount({ ...periodAmount, a2: e.target.value })} /></label>
-                <label>ไตรมาส 3<input className="border rounded p-2 w-full mt-1" value={periodAmount.a3} onChange={e => setPeriodAmount({ ...periodAmount, a3: e.target.value })} /></label>
-                <label>ไตรมาส 4<input className="border rounded p-2 w-full mt-1" value={periodAmount.a4} onChange={e => setPeriodAmount({ ...periodAmount, a4: e.target.value })} /></label>
+                <label>ไตรมาส 1
+                  <input className="border rounded p-2 w-full mt-1" value={periodAmount.a1} readOnly />
+                </label>
+                <label>ไตรมาส 2
+                  <input className="border rounded p-2 w-full mt-1" value={periodAmount.a2} readOnly />
+                </label>
+                <label>ไตรมาส 3
+                  <input className="border rounded p-2 w-full mt-1" value={periodAmount.a3} readOnly />
+                </label>
+                <label>ไตรมาส 4
+                  <input className="border rounded p-2 w-full mt-1" value={periodAmount.a4} readOnly />
+                </label>
               </div>
             </div>
           </div>
 
+          {/* สรุปรวม */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="border rounded-xl p-4">
+              <div className="grid grid-cols-1 gap-3">
+                <label>จำนวนรวม
+                  <input className="border rounded p-2 w-full mt-1"
+                    value={sumQtyNumber || sumQtyNumber === 0 ? String(sumQtyNumber) : ''}
+                    readOnly />
+                </label>
+              </div>
+            </div>
+
+            <div className="border rounded-xl p-4">
+              <div className="grid grid-cols-1 gap-3">
+                <label>ราคารวม
+                  <input className="border rounded p-2 w-full mt-1"
+                    value={formatMoney(sumAmountNumber)}
+                    readOnly />
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* ประวัติการใช้ & คงคลัง */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="border rounded-xl p-4">
               <h3 className="font-semibold mb-2">ปริมาณการใช้ย้อนหลัง (ปี)</h3>
               <div className="grid grid-cols-3 gap-3">
-                <label>1 ปี<input className="border rounded p-2 w-full mt-1" value={historyQty.y1} onChange={e => setHistoryQty({ ...historyQty, y1: e.target.value })} /></label>
-                <label>2 ปี<input className="border rounded p-2 w-full mt-1" value={historyQty.y2} onChange={e => setHistoryQty({ ...historyQty, y2: e.target.value })} /></label>
-                <label>3 ปี<input className="border rounded p-2 w-full mt-1" value={historyQty.y3} onChange={e => setHistoryQty({ ...historyQty, y3: e.target.value })} /></label>
+                <label>1 ปี
+                  <input className="border rounded p-2 w-full mt-1"
+                    value={historyQty.y1}
+                    onChange={e => setHistoryQty({ ...historyQty, y1: e.target.value })} />
+                </label>
+                <label>2 ปี
+                  <input className="border rounded p-2 w-full mt-1"
+                    value={historyQty.y2}
+                    onChange={e => setHistoryQty({ ...historyQty, y2: e.target.value })} />
+                </label>
+                <label>3 ปี
+                  <input className="border rounded p-2 w-full mt-1"
+                    value={historyQty.y3}
+                    onChange={e => setHistoryQty({ ...historyQty, y3: e.target.value })} />
+                </label>
               </div>
             </div>
 
             <div className="border rounded-xl p-4">
               <h3 className="font-semibold mb-2">จำนวนคงคลังปัจจุบัน</h3>
-              <input className="border rounded p-2 w-full" value={currentQty} onChange={e => setCurrentQty(e.target.value)} />
+              <input className="border rounded p-2 w-full"
+                value={currentQty}
+                onChange={e => setCurrentQty(e.target.value)} />
             </div>
           </div>
 
