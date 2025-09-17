@@ -1,7 +1,7 @@
 // app/budget/page.tsx
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { Loader2, Search as SearchIcon, X } from 'lucide-react';
+import { Loader2, Search as SearchIcon, X, Calculator, FileText, History, Package } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '../components/Sidebar';
 
@@ -159,7 +159,9 @@ export default function BudgetFormPage() {
                 fetch(`/api/item/${selectedItemId}/units`).then(r => r.json()),
             ]);
             if (b.success) setBasic(b.data);
+            console.log('Item basic:', b);
             if (u.success) {
+                console.log('Item units:', u);
                 setUnits(u.data ?? []);
                 const first = (u.data?.[0]?.stock_item_unit_id ?? null) as number | null;
                 setSelectedUnitId(first);
@@ -358,279 +360,439 @@ export default function BudgetFormPage() {
     };
 
     return (
-        <div className="flex">
+        <div className="flex bg-gradient-to-br from-slate-50 to-blue-50 min-h-screen">
             <Sidebar />
-            <main className="flex-1 min-h-screen bg-gray-50">
-                <div className="max-w-5xl mx-auto p-6">
-                    <h1 className="text-2xl font-bold mb-4">แบบฟอร์มวางแผนงบประมาณ</h1>
+            <main className="flex-1">
+                <div className="max-w-6xl mx-auto p-6">
+                    {/* Header */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-slate-100 rounded-xl">
+                                <FileText className="w-6 h-6 text-slate-600" />
+                            </div>
+                            <div>
+                                <h1 className="text-2xl font-bold text-slate-800">แบบฟอร์มวางแผนงบประมาณ</h1>
+                                <p className="text-slate-500 mt-1">จัดทำแผนการจัดซื้อสินค้าประจำปี</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Progress Steps */}
+                    <div className="flex items-center justify-center mb-8">
+                        <div className="flex items-center">
+                            <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all duration-300 ${
+                                step >= 1 ? 'bg-slate-600 border-slate-600 text-white' : 'bg-white border-slate-300 text-slate-400'
+                            }`}>
+                                1
+                            </div>
+                            <div className="text-xs font-medium text-slate-600 mt-2 absolute ml-[-10px] translate-y-8">
+                                ข้อมูลพื้นฐาน
+                            </div>
+                        </div>
+                        <div className={`w-16 h-1 mx-4 transition-all duration-300 ${
+                            step >= 2 ? 'bg-slate-600' : 'bg-slate-200'
+                        }`} />
+                        <div className="flex items-center">
+                            <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all duration-300 ${
+                                step >= 2 ? 'bg-slate-600 border-slate-600 text-white' : 'bg-white border-slate-300 text-slate-400'
+                            }`}>
+                                2
+                            </div>
+                            <div className="text-xs font-medium text-slate-600 mt-2 absolute ml-[-15px] translate-y-8">
+                                รายละเอียดสินค้า
+                            </div>
+                        </div>
+                    </div>
 
                     {step === 1 && (
-                        <div className="space-y-4 border rounded-xl p-4">
-                            <div>
-                                <label className="font-medium">ปีงบประมาณ</label>
-                                <select className="border rounded p-2 w-full mt-1" value={selectedYear} onChange={e => setSelectedYear(e.target.value)}>
-                                    <option value="">— เลือกปีงบประมาณ —</option>
-                                    {years.map(y => (
-                                        <option key={y.bdg_year} value={y.bdg_year}>{y.bdg_year}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="font-medium">แผนก</label>
-                                {departments.length === 1 ? (
-                                    <input className="border rounded p-2 w-full mt-1 bg-gray-100" value={departments[0].department_name} readOnly />
-                                ) : (
-                                    <select className="border rounded p-2 w-full mt-1" value={selectedDeptId || ''} onChange={e => setSelectedDeptId(Number(e.target.value))}>
-                                        <option value="">— เลือกแผนก —</option>
-                                        {departments.map(d => (
-                                            <option key={d.department_id} value={d.department_id}>{d.department_name}</option>
+                        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+                            <div className="space-y-6">
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-2">ปีงบประมาณ</label>
+                                    <select 
+                                        className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-slate-500 focus:border-slate-500 transition-all duration-200 bg-white" 
+                                        value={selectedYear} 
+                                        onChange={e => setSelectedYear(e.target.value)}
+                                    >
+                                        <option value="">— เลือกปีงบประมาณ —</option>
+                                        {years.map(y => (
+                                            <option key={y.bdg_year} value={y.bdg_year}>{y.bdg_year}</option>
                                         ))}
                                     </select>
-                                )}
-                            </div>
+                                </div>
 
-                            <div className="flex gap-3">
-                                <button
-                                    disabled={!canNext}
-                                    onClick={() => setStep(2)}
-                                    className={`px-4 py-2 rounded text-white transition ${canNext ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-400 cursor-not-allowed'}`}>
-                                    ถัดไป
-                                </button>
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-2">แผนก</label>
+                                    {departments.length === 1 ? (
+                                        <div className="relative">
+                                            <input 
+                                                className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-slate-50 text-slate-600 cursor-not-allowed" 
+                                                value={departments[0].department_name} 
+                                                readOnly 
+                                            />
+                                            <div className="absolute right-3 top-3 text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded-full">
+                                                อัตโนมัติ
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <select 
+                                            className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-slate-500 focus:border-slate-500 transition-all duration-200 bg-white" 
+                                            value={selectedDeptId || ''} 
+                                            onChange={e => setSelectedDeptId(Number(e.target.value))}
+                                        >
+                                            <option value="">— เลือกแผนก —</option>
+                                            {departments.map(d => (
+                                                <option key={d.department_id} value={d.department_id}>{d.department_name}</option>
+                                            ))}
+                                        </select>
+                                    )}
+                                </div>
+
+                                <div className="flex justify-end pt-4">
+                                    <button
+                                        disabled={!canNext}
+                                        onClick={() => setStep(2)}
+                                        className={`px-8 py-3 rounded-xl font-medium transition-all duration-200 ${
+                                            canNext 
+                                                ? 'bg-slate-600 hover:bg-slate-700 text-white shadow-sm hover:shadow-md transform hover:-translate-y-0.5' 
+                                                : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                                        }`}
+                                    >
+                                        ถัดไป
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     )}
 
                     {step === 2 && (
                         <div className="space-y-6">
-                            <div className="flex items-end gap-3">
-                                <div className="flex-1">
-                                    <label className="font-medium">ค้นหารายการ (ID/ชื่อ)</label>
-                                    <div className="relative mt-1">
-                                        <div className="flex items-center border rounded px-2">
-                                            <SearchIcon className="w-4 h-4 mr-2 opacity-60" />
-                                            <input
-                                                ref={inputRef}
-                                                className="p-2 w-full outline-none"
-                                                value={search}
-                                                onChange={e => setSearch(e.target.value)}
-                                                onKeyDown={onSearchKeyDown}
-                                                placeholder="พิมพ์อย่างน้อย 2 ตัวอักษร เช่น 13085 หรือ พาราเซตามอล"
-                                                onFocus={() => { if (liveResults.length || searchError) setOpenDropdown(true); }}
-                                            />
-                                            {search && (
-                                                <button
-                                                    className="p-1 opacity-60 hover:opacity-100 transition"
-                                                    onClick={() => { setSearch(''); setLiveResults([]); setOpenDropdown(false); setHighlight(-1); }}>
-                                                    <X className="w-4 h-4" />
-                                                </button>
+                            {/* Search Section */}
+                            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                                <div className="flex items-start gap-6">
+                                    <div className="flex-1">
+                                        <label className="block text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                                            <SearchIcon className="w-4 h-4" />
+                                            ค้นหารายการสินค้า
+                                        </label>
+                                        <div className="relative">
+                                            <div className="flex items-center border border-slate-300 rounded-xl px-4 py-3 bg-white focus-within:ring-2 focus-within:ring-slate-500 focus-within:border-slate-500 transition-all duration-200">
+                                                <SearchIcon className="w-5 h-5 mr-3 text-slate-400" />
+                                                <input
+                                                    ref={inputRef}
+                                                    className="flex-1 outline-none text-slate-700 placeholder-slate-400"
+                                                    value={search}
+                                                    onChange={e => setSearch(e.target.value)}
+                                                    onKeyDown={onSearchKeyDown}
+                                                    placeholder="พิมพ์รหัสสินค้าหรือชื่อสินค้า (อย่างน้อย 2 ตัวอักษร)"
+                                                    onFocus={() => { if (liveResults.length || searchError) setOpenDropdown(true); }}
+                                                />
+                                                {search && (
+                                                    <button
+                                                        className="p-1 text-slate-400 hover:text-slate-600 transition-colors duration-200 ml-2"
+                                                        onClick={() => { setSearch(''); setLiveResults([]); setOpenDropdown(false); setHighlight(-1); }}>
+                                                        <X className="w-4 h-4" />
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            {/* Loading */}
+                                            {searchLoading && (
+                                                <div className="absolute right-4 top-3.5 flex items-center gap-2 text-sm text-slate-500">
+                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                    <span className="text-xs">กำลังค้นหา...</span>
+                                                </div>
                                             )}
+
+                                            {/* Error */}
+                                            {!searchLoading && searchError && openDropdown && (
+                                                <div className="absolute z-30 w-full mt-2 p-4 border border-red-200 rounded-xl bg-red-50 text-red-600 text-sm">
+                                                    {searchError}
+                                                </div>
+                                            )}
+
+                                            {/* Dropdown results */}
+                                            {openDropdown && !searchLoading && !searchError && (liveResults.length > 0 ? (
+                                                <ul
+                                                    ref={dropdownRef}
+                                                    className="absolute z-30 w-full mt-2 max-h-80 overflow-auto border border-slate-200 rounded-xl bg-white shadow-lg">
+                                                    {liveResults.map((it, idx) => (
+                                                        <li
+                                                            key={it.item_id}
+                                                            role="button"
+                                                            tabIndex={0}
+                                                            onMouseDown={(e) => e.preventDefault()}
+                                                            onClick={() => chooseItem(it)}
+                                                            className={`px-4 py-3 cursor-pointer transition-colors duration-200 border-b border-slate-100 last:border-b-0 ${
+                                                                idx === highlight ? 'bg-slate-50' : 'hover:bg-slate-50'
+                                                            }`}>
+                                                            <div className="font-medium text-slate-800">{it.item_name}</div>
+                                                            <div className="text-xs text-slate-500 mt-1">
+                                                                รหัส: {it.item_id} • หน่วยพื้นฐาน: {it.item_unit}
+                                                            </div>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            ) : search.length >= 2 ? (
+                                                <div className="absolute z-30 w-full mt-2 p-4 border border-slate-200 rounded-xl bg-white shadow-lg text-slate-500 text-sm">
+                                                    ไม่พบผลลัพธ์ที่ตรงกับการค้นหา
+                                                </div>
+                                            ) : null)}
                                         </div>
+                                    </div>
 
-                                        {/* Loading / Error */}
-                                        {searchLoading && (
-                                            <div className="absolute right-2 top-2.5 flex items-center gap-2 text-sm text-gray-500">
-                                                <Loader2 className="w-4 h-4 animate-spin" />
-                                                กำลังค้นหา…
-                                            </div>
-                                        )}
-                                        {!searchLoading && searchError && openDropdown && (
-                                            <div className="absolute z-20 w-full mt-1 border rounded bg-white text-sm p-3 text-red-600">
-                                                {searchError}
-                                            </div>
-                                        )}
+                                    <div className="w-64">
+                                        <label className="block text-sm font-semibold text-slate-700 mb-3">อ้างอิงราคา</label>
+                                        <div className="px-4 py-3 border border-slate-200 rounded-xl bg-slate-50 text-sm text-slate-600">
+                                            ณ วันนี้ ({new Date().toLocaleDateString('th-TH')})
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
 
-                                        {/* Dropdown results */}
-                                        {openDropdown && !searchLoading && !searchError && (liveResults.length > 0 ? (
-                                            <ul
-                                                ref={dropdownRef}
-                                                className="absolute z-20 w-full mt-1 max-h-72 overflow-auto border rounded bg-white shadow-sm">
-                                                {liveResults.map((it, idx) => (
-                                                    <li
-                                                        key={it.item_id}
-                                                        role="button"
-                                                        tabIndex={0}
-                                                        onMouseDown={(e) => e.preventDefault()}
-                                                        onClick={() => chooseItem(it)}
-                                                        className={`px-3 py-2 flex items-center justify-between cursor-pointer transition
-                          ${idx === highlight ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
-                                                        <div>
-                                                            <div className="font-medium">{it.item_name}</div>
-                                                            <div className="text-xs text-gray-500">ID: {it.item_id} • หน่วยพื้นฐาน: {it.item_unit}</div>
-                                                        </div>
-                                                    </li>
+                            {/* Item Details */}
+                            {basic && (
+                                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                                    <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                                        <Package className="w-5 h-5 text-slate-600" />
+                                        ข้อมูลสินค้า
+                                    </h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                                        <div className="p-3 bg-slate-50 rounded-lg">
+                                            <span className="font-medium text-slate-600">ชื่อรายการ:</span>
+                                            <div className="text-slate-800 mt-1">{basic.item_name}</div>
+                                        </div>
+                                        <div className="p-3 bg-slate-50 rounded-lg">
+                                            <span className="font-medium text-slate-600">หน่วยพื้นฐาน:</span>
+                                            <div className="text-slate-800 mt-1">{basic.item_unit}</div>
+                                        </div>
+                                        <div className="p-3 bg-slate-50 rounded-lg">
+                                            <span className="font-medium text-slate-600">ประเภทสินค้า:</span>
+                                            <div className="text-slate-800 mt-1">{basic.item_type_name || '-'}</div>
+                                        </div>
+                                        <div className="p-3 bg-slate-50 rounded-lg">
+                                            <span className="font-medium text-slate-600">หมวด (Class):</span>
+                                            <div className="text-slate-800 mt-1">{basic.stock_class_name || '-'}</div>
+                                        </div>
+                                        <div className="p-3 bg-slate-50 rounded-lg">
+                                            <span className="font-medium text-slate-600">หมวดย่อย (Sub-class):</span>
+                                            <div className="text-slate-800 mt-1">{basic.stock_sub_class_name || '-'}</div>
+                                        </div>
+                                        <div className="p-3 bg-slate-50 rounded-lg">
+                                            <span className="font-medium text-slate-600">ED Type:</span>
+                                            <div className="text-slate-800 mt-1">{basic.stock_item_ed_type_name || '-'}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Unit Selection */}
+                            {units.length > 0 && (
+                                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                                    <h3 className="text-lg font-semibold text-slate-800 mb-4">หน่วยบรรจุและราคา</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-semibold text-slate-700 mb-2">หน่วยบรรจุ (ที่ต้องการซื้อ)</label>
+                                            <select
+                                                className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-slate-500 focus:border-slate-500 transition-all duration-200 bg-white"
+                                                value={selectedUnitId ?? ''}
+                                                onChange={e => {
+                                                    const v = e.target.value;
+                                                    setSelectedUnitId(v ? Number(v) : null);
+                                                }}
+                                            >
+                                                <option value="">— เลือกหน่วย —</option>
+                                                {units.map(u => (
+                                                    <option key={u.stock_item_unit_id} value={u.stock_item_unit_id}>
+                                                        {u.item_unit_name} (x{u.unit_qty})
+                                                    </option>
                                                 ))}
-                                            </ul>
-                                        ) : (
-                                            <div className="absolute z-20 w-full mt-1 border rounded bg-white text-sm p-3 text-gray-500">
-                                                ไม่พบผลลัพธ์
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-slate-700 mb-2">ขนาดบรรจุ</label>
+                                            <div className="relative">
+                                                <input
+                                                    className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-slate-50 text-slate-600 cursor-not-allowed"
+                                                    value={selectedUnitQty ?? ''}
+                                                    readOnly
+                                                />
+                                                <div className="absolute right-3 top-3 text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded-full">
+                                                    อัตโนมัติ
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-slate-700 mb-2">ราคาต่อหน่วยล่าสุด</label>
+                                            <div className="relative">
+                                                <input
+                                                    className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-slate-50 text-slate-600 cursor-not-allowed"
+                                                    value={unitCostSum != null ? formatMoney(unitCostSum) : ''}
+                                                    readOnly
+                                                />
+                                                <div className="absolute right-3 top-3 text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded-full">
+                                                    คำนวณ
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Quarterly Planning */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                                    <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                                        <Calculator className="w-5 h-5 text-slate-600" />
+                                        จำนวนตามไตรมาส
+                                    </h3>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        {[
+                                            { key: 'p1', label: 'ไตรมาส 1', color: 'blue' },
+                                            { key: 'p2', label: 'ไตรมาส 2', color: 'green' },
+                                            { key: 'p3', label: 'ไตรมาส 3', color: 'yellow' },
+                                            { key: 'p4', label: 'ไตรมาส 4', color: 'red' }
+                                        ].map(quarter => (
+                                            <div key={quarter.key}>
+                                                <label className="block text-sm font-medium text-slate-700 mb-2">
+                                                    {quarter.label}
+                                                </label>
+                                                <input 
+                                                    className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-slate-500 focus:border-slate-500 transition-all duration-200"
+                                                    value={periodQty[quarter.key as keyof typeof periodQty]}
+                                                    onChange={e => setPeriodQty({ ...periodQty, [quarter.key]: e.target.value })}
+                                                    placeholder="0"
+                                                />
                                             </div>
                                         ))}
                                     </div>
                                 </div>
 
-                                <div className="pb-2">
-                                    <label className="font-medium block">อ้างอิงราคา</label>
-                                    <div className="mt-1 px-3 py-2 border rounded bg-gray-50 text-sm">
-                                        ณ วันนี้ ({new Date().toISOString().slice(0, 10)})
+                                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                                    <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                                        💰 ราคารวมตามไตรมาส
+                                    </h3>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        {[
+                                            { key: 'a1', label: 'ไตรมาส 1', color: 'blue' },
+                                            { key: 'a2', label: 'ไตรมาส 2', color: 'green' },
+                                            { key: 'a3', label: 'ไตรมาส 3', color: 'yellow' },
+                                            { key: 'a4', label: 'ไตรมาส 4', color: 'red' }
+                                        ].map(quarter => (
+                                            <div key={quarter.key}>
+                                                <label className="block text-sm font-medium text-slate-700 mb-2">
+                                                    {quarter.label}
+                                                </label>
+                                                <div className="relative">
+                                                    <input 
+                                                        className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-slate-50 text-slate-600 cursor-not-allowed"
+                                                        value={periodAmount[quarter.key as keyof typeof periodAmount]} 
+                                                        readOnly 
+                                                    />
+                                                    <div className="absolute right-3 top-3 text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded-full">
+                                                        คำนวณ
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
                             </div>
 
-                            {basic && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2 text-sm border rounded-xl p-4">
-                                    <div><span className="font-semibold">ชื่อรายการ:</span> {basic.item_name}</div>
-                                    <div><span className="font-semibold">หน่วยพื้นฐาน:</span> {basic.item_unit}</div>
-                                    <div><span className="font-semibold">ประเภทสินค้า:</span> {basic.item_type_name ?? '-'}</div>
-                                    <div><span className="font-semibold">หมวด (Class):</span> {basic.stock_class_name ?? '-'}</div>
-                                    <div><span className="font-semibold">หมวดย่อย (Sub-class):</span> {basic.stock_sub_class_name ?? '-'}</div>
-                                    <div><span className="font-semibold">ED Type:</span> {basic.stock_item_ed_type_name ?? '-'}</div>
-                                </div>
-                            )}
-
-                            {units.length > 0 && (
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div>
-                                        <label className="font-medium">หน่วยบรรจุ (ที่ต้องการซื้อ)</label>
-                                        <select
-                                            className="border rounded p-2 w-full mt-1"
-                                            value={selectedUnitId ?? ''} // '' เพื่อแสดง placeholder เมื่อ null
-                                            onChange={e => {
-                                                const v = e.target.value;
-                                                setSelectedUnitId(v ? Number(v) : null);
-                                            }}
-                                        >
-                                            <option value="">— เลือกหน่วย —</option>
-                                            {units.map(u => (
-                                                <option key={u.stock_item_unit_id} value={u.stock_item_unit_id}>
-                                                    {u.item_unit_name} (x{u.unit_qty})
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="font-medium">ขนาดบรรจุ</label>
-                                        <input
-                                            className="border rounded p-2 w-full mt-1 bg-gray-100"
-                                            value={selectedUnitQty ?? ''}
-                                            readOnly
+                            {/* Summary */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <div className="bg-gradient-to-r from-slate-50 to-blue-50 rounded-2xl border border-slate-200 p-6">
+                                    <h3 className="text-lg font-semibold text-slate-800 mb-4">📊 สรุปจำนวนรวม</h3>
+                                    <div className="relative">
+                                        <input 
+                                            className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white text-slate-800 font-semibold text-lg cursor-not-allowed"
+                                            value={sumQtyNumber || sumQtyNumber === 0 ? String(sumQtyNumber) : ''}
+                                            readOnly 
                                         />
+                                        <div className="absolute right-3 top-3 text-xs bg-slate-600 text-white px-2 py-1 rounded-full">
+                                            ผลรวม
+                                        </div>
                                     </div>
-                                    <div>
-                                        <label className="font-medium">ราคาต่อหน่วยล่าสุด</label>
-                                        <input
-                                            className="border rounded p-2 w-full mt-1 bg-gray-100"
-                                            value={unitCostSum != null ? formatMoney(unitCostSum) : ''}
-                                            readOnly
+                                </div>
+
+                                <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl border border-green-200 p-6">
+                                    <h3 className="text-lg font-semibold text-slate-800 mb-4">💵 สรุปราคารวม</h3>
+                                    <div className="relative">
+                                        <input 
+                                            className="w-full px-4 py-3 border border-green-200 rounded-xl bg-white text-green-700 font-bold text-lg cursor-not-allowed"
+                                            value={formatMoney(sumAmountNumber)}
+                                            readOnly 
                                         />
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="border rounded-xl p-4">
-                                    <h3 className="font-semibold mb-2">จำนวนตามไตรมาส</h3>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <label>ไตรมาส 1
-                                            <input className="border rounded p-2 w-full mt-1"
-                                                value={periodQty.p1}
-                                                onChange={e => setPeriodQty({ ...periodQty, p1: e.target.value })} />
-                                        </label>
-                                        <label>ไตรมาส 2
-                                            <input className="border rounded p-2 w-full mt-1"
-                                                value={periodQty.p2}
-                                                onChange={e => setPeriodQty({ ...periodQty, p2: e.target.value })} />
-                                        </label>
-                                        <label>ไตรมาส 3
-                                            <input className="border rounded p-2 w-full mt-1"
-                                                value={periodQty.p3}
-                                                onChange={e => setPeriodQty({ ...periodQty, p3: e.target.value })} />
-                                        </label>
-                                        <label>ไตรมาส 4
-                                            <input className="border rounded p-2 w-full mt-1"
-                                                value={periodQty.p4}
-                                                onChange={e => setPeriodQty({ ...periodQty, p4: e.target.value })} />
-                                        </label>
-                                    </div>
-                                </div>
-
-                                <div className="border rounded-xl p-4">
-                                    <h3 className="font-semibold mb-2">ราคารวมตามไตรมาส</h3>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <label>ไตรมาส 1
-                                            <input className="border rounded p-2 w-full mt-1" value={periodAmount.a1} readOnly />
-                                        </label>
-                                        <label>ไตรมาส 2
-                                            <input className="border rounded p-2 w-full mt-1" value={periodAmount.a2} readOnly />
-                                        </label>
-                                        <label>ไตรมาส 3
-                                            <input className="border rounded p-2 w-full mt-1" value={periodAmount.a3} readOnly />
-                                        </label>
-                                        <label>ไตรมาส 4
-                                            <input className="border rounded p-2 w-full mt-1" value={periodAmount.a4} readOnly />
-                                        </label>
+                                        <div className="absolute right-3 top-3 text-xs bg-green-600 text-white px-2 py-1 rounded-full">
+                                            บาท
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* สรุปรวม */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="border rounded-xl p-4">
-                                    <div className="grid grid-cols-1 gap-3">
-                                        <label>จำนวนรวม
-                                            <input className="border rounded p-2 w-full mt-1"
-                                                value={sumQtyNumber || sumQtyNumber === 0 ? String(sumQtyNumber) : ''}
-                                                readOnly />
-                                        </label>
+                            {/* History & Current Stock */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                                    <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                                        <History className="w-5 h-5 text-slate-600" />
+                                        ประวัติการใช้ย้อนหลัง
+                                    </h3>
+                                    <div className="grid grid-cols-3 gap-4">
+                                        {[
+                                            { key: 'y1', label: '1 ปีที่แล้ว' },
+                                            { key: 'y2', label: '2 ปีที่แล้ว' },
+                                            { key: 'y3', label: '3 ปีที่แล้ว' }
+                                        ].map(year => (
+                                            <div key={year.key}>
+                                                <label className="block text-sm font-medium text-slate-700 mb-2">
+                                                    {year.label}
+                                                </label>
+                                                <input 
+                                                    className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-slate-500 focus:border-slate-500 transition-all duration-200"
+                                                    value={historyQty[year.key as keyof typeof historyQty]}
+                                                    onChange={e => setHistoryQty({ ...historyQty, [year.key]: e.target.value })}
+                                                    placeholder="0"
+                                                />
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
 
-                                <div className="border rounded-xl p-4">
-                                    <div className="grid grid-cols-1 gap-3">
-                                        <label>ราคารวม
-                                            <input className="border rounded p-2 w-full mt-1"
-                                                value={formatMoney(sumAmountNumber)}
-                                                readOnly />
-                                        </label>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* ประวัติการใช้ & คงคลัง */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="border rounded-xl p-4">
-                                    <h3 className="font-semibold mb-2">ปริมาณการใช้ย้อนหลัง (ปี)</h3>
-                                    <div className="grid grid-cols-3 gap-3">
-                                        <label>1 ปี
-                                            <input className="border rounded p-2 w-full mt-1"
-                                                value={historyQty.y1}
-                                                onChange={e => setHistoryQty({ ...historyQty, y1: e.target.value })} />
-                                        </label>
-                                        <label>2 ปี
-                                            <input className="border rounded p-2 w-full mt-1"
-                                                value={historyQty.y2}
-                                                onChange={e => setHistoryQty({ ...historyQty, y2: e.target.value })} />
-                                        </label>
-                                        <label>3 ปี
-                                            <input className="border rounded p-2 w-full mt-1"
-                                                value={historyQty.y3}
-                                                onChange={e => setHistoryQty({ ...historyQty, y3: e.target.value })} />
-                                        </label>
-                                    </div>
-                                </div>
-
-                                <div className="border rounded-xl p-4">
-                                    <h3 className="font-semibold mb-2">จำนวนคงคลังปัจจุบัน</h3>
-                                    <input className="border rounded p-2 w-full"
+                                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                                    <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                                        📦 จำนวนคงคลังปัจจุบัน
+                                    </h3>
+                                    <input 
+                                        className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-slate-500 focus:border-slate-500 transition-all duration-200 text-lg"
                                         value={currentQty}
-                                        onChange={e => setCurrentQty(e.target.value)} />
+                                        onChange={e => setCurrentQty(e.target.value)}
+                                        placeholder="ระบุจำนวนคงคลัง"
+                                    />
                                 </div>
                             </div>
 
-                            <div className="flex gap-3">
-                                <button className="px-4 py-2 rounded bg-gray-200" onClick={() => setStep(1)}>ย้อนกลับ</button>
-                                <button className="px-4 py-2 rounded bg-green-600 text-white" onClick={handleSave}>บันทึก</button>
-                                <button className="px-4 py-2 rounded bg-orange-500 text-white" onClick={resetAll}>ล้างค่า</button>
+                            {/* Action Buttons */}
+                            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                                <div className="flex flex-wrap gap-4 justify-end">
+                                    <button 
+                                        className="px-6 py-3 rounded-xl font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 transition-all duration-200 border border-slate-200"
+                                        onClick={() => setStep(1)}
+                                    >
+                                        ← ย้อนกลับ
+                                    </button>
+                                    <button 
+                                        className="px-6 py-3 rounded-xl font-medium text-orange-700 bg-orange-100 hover:bg-orange-200 transition-all duration-200 border border-orange-200"
+                                        onClick={resetAll}
+                                    >
+                                        🔄 ล้างข้อมูล
+                                    </button>
+                                    <button 
+                                        className="px-8 py-3 rounded-xl font-medium text-white bg-green-600 hover:bg-green-700 transition-all duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-0.5"
+                                        onClick={handleSave}
+                                    >
+                                        💾 บันทึกข้อมูล
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     )}

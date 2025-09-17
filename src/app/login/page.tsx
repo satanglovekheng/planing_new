@@ -50,7 +50,7 @@ export default function LoginPage() {
       });
 
       const result = await response.json();
-
+      console.log('Login response:', result); // Debugging log
       if (result.success) {
         if (result.data.department_id) {
           localStorage.setItem('department_id', result.data.department_id.toString());
