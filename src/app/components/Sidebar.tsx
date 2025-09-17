@@ -57,7 +57,7 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="h-screen w-80 bg-white border-r border-slate-200 flex flex-col shadow-sm">
+    <aside className="fixed top-0 left-0 h-screen w-80 bg-white border-r border-slate-200 flex flex-col shadow-sm z-40">
       {/* Header */}
       <div className="p-6 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-blue-50">
         <div className="flex items-center gap-3 mb-4">
