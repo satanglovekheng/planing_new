@@ -383,7 +383,7 @@ export default function StockPlanTablePage() {
   return (
     <div className="flex bg-gradient-to-br from-slate-50 to-blue-50 min-h-screen">
       <Sidebar />
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="max-w-7xl mx-auto p-6 md:pl-80 pl-0">
         {/* Header */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6">
           <div className="flex items-center gap-3">
