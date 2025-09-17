@@ -46,6 +46,7 @@ export default function Sidebar() {
         department_name: localStorage.getItem('department_name')
       });
     }
+    console.log('User Info:', userInfo); // Debugging log
   }, []);
 
   const handleLogout = () => {

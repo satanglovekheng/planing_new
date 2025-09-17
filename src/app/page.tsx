@@ -76,6 +76,11 @@ type StockPlanDetail = {
   stock_item_ed_type_name: string | null;
 };
 
+type Department = {
+  department_id: number;
+  department_name: string;
+};
+
 function SortIcon({ dir }: { dir: "asc" | "desc" }) {
   return (
     <span className="inline-block align-middle ml-2">
@@ -108,7 +113,14 @@ const toNum = (v: unknown): number => {
 // ====== Main Page ======
 export default function StockPlanTablePage() {
   // ===== control =====
-  const [depID] = useState<number>(107);
+  const depID = localStorage.getItem('officer_id');
+
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [selectedDeptIds, setSelectedDeptIds] = useState<number[]>([]);
+
+  const [deptOpen, setDeptOpen] = useState(false);
+  const [deptSearch, setDeptSearch] = useState("");
+
   const [q, setQ] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("item_name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -132,17 +144,73 @@ export default function StockPlanTablePage() {
   const [form, setForm] = useState<StockPlanDetail | null>(null);
   const [saving, setSaving] = useState(false);
 
+
+  useEffect(() => {
+    let alive = true;
+    fetch(`/api/departments?userId=${depID}`)
+      .then(r => r.json())
+      .then(res => {
+        if (!alive) return;
+        if (res?.success !== false) {
+          const list: Department[] = Array.isArray(res) ? res : res?.data || [];
+          setDepartments(list);
+          // ค่าเริ่มต้น: เลือกทุก department
+          setSelectedDeptIds(list.map(d => Number(d.department_id)).filter(Boolean));
+        } else {
+          console.error('departments api error:', res?.error);
+        }
+      })
+      .catch(err => console.error('departments fetch error:', err));
+    return () => { alive = false; };
+  }, [depID]);
+
+  const filteredDepartments = useMemo(() => {
+    const kw = deptSearch.trim().toLowerCase();
+    if (!kw) return departments;
+    return departments.filter(d =>
+      String(d.department_name || "").toLowerCase().includes(kw) ||
+      String(d.department_id || "").includes(kw)
+    );
+  }, [departments, deptSearch]);
+
+  const allSelected = selectedDeptIds.length > 0 && selectedDeptIds.length === departments.length;
+
+  const toggleDept = (id: number) => {
+    setSelectedDeptIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    setPage(1);
+  };
+  
+  const selectAll = () => {
+    setSelectedDeptIds(departments.map(d => d.department_id));
+    setPage(1);
+  };
+  
+  const clearAll = () => {
+    setSelectedDeptIds([]);
+    setPage(1);
+  };
+
   // ===== fetch (server-side pagination) =====
   useEffect(() => {
     let alive = true;
     const controller = new AbortController();
 
     const fetchData = async () => {
+      // ถ้ายังไม่มี dep ที่เลือก ให้เคลียร์ผลลัพธ์ (กันยิง API โดยไม่มี where)
+      if (!selectedDeptIds || selectedDeptIds.length === 0) {
+        setRows([]);
+        setTotal(0);
+        return;
+      }
+
       const res = await fetch("/api/stock", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
-        body: JSON.stringify({ depID, q, sortKey, sortDir, page, pageSize }),
+        body: JSON.stringify({
+          depIDs: selectedDeptIds,   // <<== ใช้ array
+          q, sortKey, sortDir, page, pageSize
+        }),
       });
       const json = await res.json();
       if (!alive) return;
@@ -168,7 +236,9 @@ export default function StockPlanTablePage() {
       controller.abort();
       clearTimeout(t);
     };
-  }, [depID, q, sortKey, sortDir, page, pageSize]);
+  }, [selectedDeptIds, q, sortKey, sortDir, page, pageSize]);
+
+
 
   const onSort = (key: SortKey) => {
     if (key === sortKey) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -329,54 +399,157 @@ export default function StockPlanTablePage() {
 
         {/* Controls */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6">
-          <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <div className="flex items-center border border-slate-300 rounded-xl px-4 py-3 bg-white focus-within:ring-2 focus-within:ring-slate-500 focus-within:border-slate-500 transition-all duration-200">
-                  <Search className="w-5 h-5 mr-3 text-slate-400" />
-                  <input
-                    value={q}
-                    onChange={(e) => {
-                      setQ(e.target.value);
-                      setPage(1);
-                    }}
-                    placeholder="ค้นหาสินค้า: ชื่อรายการ / หน่วยนับ / ประเภท"
-                    className="flex-1 outline-none text-slate-700 placeholder-slate-400"
-                  />
-                  {q && (
-                    <button
-                      onClick={() => {
-                        setQ("");
-                        setPage(1);
-                      }}
-                      className="p-1 text-slate-400 hover:text-slate-600 transition-colors duration-200 ml-2"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
+  <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+    {/* ค้นหารายการ */}
+    <div className="flex-1">
+      <div className="relative">
+        <div className="flex items-center border border-slate-300 rounded-xl px-4 py-3 bg-white focus-within:ring-2 focus-within:ring-slate-500 focus-within:border-slate-500 transition-all duration-200">
+          <Search className="w-5 h-5 mr-3 text-slate-400" />
+          <input
+            value={q}
+            onChange={(e) => { setQ(e.target.value); setPage(1); }}
+            placeholder="ค้นหาสินค้า: ชื่อรายการ / หน่วยนับ / ประเภท"
+            className="flex-1 outline-none text-slate-700 placeholder-slate-400"
+          />
+          {q && (
+            <button
+              onClick={() => { setQ(""); setPage(1); }}
+              className="p-1 text-slate-400 hover:text-slate-600 transition-colors duration-200 ml-2"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
 
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-medium text-slate-600">แสดงต่อหน้า:</span>
-              <select
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(Number(e.target.value));
-                  setPage(1);
-                }}
-                className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500 transition-all duration-200 bg-white"
+    {/* ตัวเลือกแผนก */}
+    <div className="relative">
+      <button
+        onClick={() => setDeptOpen(o => !o)}
+        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 transition-all duration-200"
+      >
+        หน่วยงาน ({selectedDeptIds.length}/{departments.length || 0})
+        {allSelected ? <span className="ml-1 text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">เลือกทั้งหมด</span> : null}
+      </button>
+
+      {deptOpen && (
+        <div className="absolute right-0 mt-2 w-[420px] z-40 bg-white border border-slate-200 rounded-2xl shadow-lg p-4">
+          {/* Search box */}
+          <div className="flex items-center border border-slate-300 rounded-lg overflow-hidden">
+            <div className="px-3 text-slate-400">
+              <Search className="w-4 h-4" />
+            </div>
+            <input
+              value={deptSearch}
+              onChange={(e) => setDeptSearch(e.target.value)}
+              placeholder="ค้นหาแผนก… (พิมพ์ชื่อหรือเลข ID)"
+              className="flex-1 px-3 py-2 outline-none"
+            />
+            {deptSearch && (
+              <button className="px-2 text-slate-400 hover:text-slate-600" onClick={() => setDeptSearch("")}>
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center justify-between mt-3">
+            <div className="text-xs text-slate-500">
+              พบ {filteredDepartments.length} จาก {departments.length} แผนก
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={selectAll}
+                className="text-sm px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50"
               >
-                {[10, 20, 50, 100].map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </select>
+                เลือกทั้งหมด
+              </button>
+              <button
+                onClick={clearAll}
+                className="text-sm px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50"
+              >
+                ล้างเลือก
+              </button>
+              <button
+                onClick={() => setDeptOpen(false)}
+                className="text-sm px-3 py-1.5 rounded-lg bg-slate-600 text-white hover:bg-slate-700"
+              >
+                ปิด
+              </button>
             </div>
           </div>
+
+          {/* List */}
+          <div className="mt-3 max-h-[300px] overflow-auto border border-slate-200 rounded-xl">
+            {filteredDepartments.length === 0 ? (
+              <div className="p-4 text-center text-slate-500">ไม่พบแผนกที่ตรงคำค้น</div>
+            ) : (
+              <ul className="divide-y divide-slate-100">
+                {filteredDepartments.map((d) => {
+                  const checked = selectedDeptIds.includes(d.department_id);
+                  return (
+                    <li
+                      key={d.department_id}
+                      className="flex items-center gap-3 px-3 py-2 hover:bg-slate-50"
+                    >
+                      <label className="flex items-center gap-3 cursor-pointer w-full">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleDept(d.department_id)}
+                          className="h-4 w-4 rounded border-slate-300"
+                        />
+                        <div className="flex-1">
+                          <div className="text-sm font-medium text-slate-800">{d.department_name}</div>
+                          <div className="text-xs text-slate-500">ID: {d.department_id}</div>
+                        </div>
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
         </div>
+      )}
+    </div>
+
+    {/* Page size */}
+    <div className="flex items-center gap-3">
+      <span className="text-sm font-medium text-slate-600">แสดงต่อหน้า:</span>
+      <select
+        value={pageSize}
+        onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
+        className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500 transition-all duration-200 bg-white"
+      >
+        {[10, 20, 50, 100].map((n) => (
+          <option key={n} value={n}>{n}</option>
+        ))}
+      </select>
+    </div>
+  </div>
+
+  {/* แสดง chip ของแผนกที่เลือก (ถ้าต้องการลบเร็ว ๆ) */}
+  {selectedDeptIds.length > 0 && (
+    <div className="mt-4 flex flex-wrap gap-2">
+      {departments
+        .filter(d => selectedDeptIds.includes(d.department_id))
+        .slice(0, 10) // โชว์อย่างมาก 10 อัน ป้องกันยาวเกิน
+        .map(d => (
+          <span key={d.department_id} className="inline-flex items-center gap-2 text-sm px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+            {d.department_name}
+            <button onClick={() => toggleDept(d.department_id)} className="text-slate-500 hover:text-slate-700">
+              <X className="w-3 h-3" />
+            </button>
+          </span>
+        ))}
+      {selectedDeptIds.length > 10 && (
+        <span className="text-sm text-slate-500">+{selectedDeptIds.length - 10} รายการ</span>
+      )}
+    </div>
+  )}
+</div>
 
         {/* Table */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-6">
@@ -458,11 +631,11 @@ export default function StockPlanTablePage() {
             <div className="text-sm text-slate-600">
               แสดง {total === 0 ? 0 : showingFrom}-{showingTo} จาก {total} รายการ
             </div>
-            
+
             <div className="md:ml-auto flex items-center gap-2">
-              <button 
-                className="inline-flex items-center gap-2 px-3 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200" 
-                onClick={() => setPage(1)} 
+              <button
+                className="inline-flex items-center gap-2 px-3 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200"
+                onClick={() => setPage(1)}
                 disabled={page === 1}
               >
                 <ChevronsLeft className="w-4 h-4" />
@@ -487,11 +660,10 @@ export default function StockPlanTablePage() {
                     <button
                       key={it as number}
                       onClick={() => setPage(it as number)}
-                      className={`px-3 py-2 rounded-lg transition-all duration-200 font-medium ${
-                        page === it 
-                          ? "bg-slate-600 text-white border border-slate-600" 
-                          : "border border-slate-300 text-slate-600 hover:bg-slate-50"
-                      }`}
+                      className={`px-3 py-2 rounded-lg transition-all duration-200 font-medium ${page === it
+                        ? "bg-slate-600 text-white border border-slate-600"
+                        : "border border-slate-300 text-slate-600 hover:bg-slate-50"
+                        }`}
                     >
                       {it}
                     </button>
@@ -507,9 +679,9 @@ export default function StockPlanTablePage() {
                 Next
                 <ChevronRight className="w-4 h-4" />
               </button>
-              <button 
-                className="inline-flex items-center gap-2 px-3 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200" 
-                onClick={() => setPage(totalPages)} 
+              <button
+                className="inline-flex items-center gap-2 px-3 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200"
+                onClick={() => setPage(totalPages)}
                 disabled={page === totalPages}
               >
                 Last
@@ -524,7 +696,7 @@ export default function StockPlanTablePage() {
           <div className="fixed inset-0 z-50 flex items-start justify-center p-4">
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setOpen(false)} />
             <div className="relative w-full max-w-5xl bg-white rounded-2xl shadow-2xl overflow-hidden max-h-[92vh] overflow-y-auto">
-              
+
               {/* Header */}
               <div className="bg-slate-50 border-b border-slate-200 p-6">
                 <div className="flex items-center justify-between">
@@ -576,10 +748,10 @@ export default function StockPlanTablePage() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-semibold text-slate-700 mb-2">หน่วยบรรจุ (ที่ต้องการซื้อ)</label>
-                      <input 
-                        value={form.item_unit || ""} 
-                        onChange={(e) => update({ item_unit: e.target.value })} 
-                        className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-slate-500 focus:border-slate-500 transition-all duration-200" 
+                      <input
+                        value={form.item_unit || ""}
+                        onChange={(e) => update({ item_unit: e.target.value })}
+                        className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-slate-500 focus:border-slate-500 transition-all duration-200"
                       />
                     </div>
                     <div>
@@ -659,10 +831,10 @@ export default function StockPlanTablePage() {
                   <div className="bg-gradient-to-r from-slate-50 to-blue-50 rounded-2xl border border-slate-200 p-6">
                     <h3 className="text-lg font-semibold text-slate-800 mb-4">📊 สรุปจำนวนรวม</h3>
                     <div className="relative">
-                      <input 
-                        type="number" 
-                        value={toNum(form.total_qty)} 
-                        readOnly 
+                      <input
+                        type="number"
+                        value={toNum(form.total_qty)}
+                        readOnly
                         className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white text-slate-800 font-semibold text-lg cursor-not-allowed"
                       />
                       <div className="absolute right-3 top-3 text-xs bg-slate-600 text-white px-2 py-1 rounded-full">
@@ -674,11 +846,11 @@ export default function StockPlanTablePage() {
                   <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl border border-green-200 p-6">
                     <h3 className="text-lg font-semibold text-slate-800 mb-4">💵 สรุปราคารวม</h3>
                     <div className="relative">
-                      <input 
-                        type="number" 
-                        step="0.01" 
-                        value={toNum(form.total_amount)} 
-                        readOnly 
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={toNum(form.total_amount)}
+                        readOnly
                         className="w-full px-4 py-3 border border-green-200 rounded-xl bg-white text-green-700 font-bold text-lg cursor-not-allowed"
                       />
                       <div className="absolute right-3 top-3 text-xs bg-green-600 text-white px-2 py-1 rounded-full">
@@ -705,10 +877,10 @@ export default function StockPlanTablePage() {
                           <label className="block text-sm font-medium text-slate-700 mb-2">
                             {year.label}
                           </label>
-                          <input 
-                            type="number" 
-                            value={(form as any)[year.key] ?? 0} 
-                            onChange={(e) => update({ [year.key]: Number(e.target.value) } as any)} 
+                          <input
+                            type="number"
+                            value={(form as any)[year.key] ?? 0}
+                            onChange={(e) => update({ [year.key]: Number(e.target.value) } as any)}
                             className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-slate-500 focus:border-slate-500 transition-all duration-200"
                             placeholder="0"
                           />
@@ -721,10 +893,10 @@ export default function StockPlanTablePage() {
                     <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
                       📦 จำนวนคงคลังปัจจุบัน
                     </h3>
-                    <input 
-                      type="number" 
-                      value={form.current_qty ?? 0} 
-                      onChange={(e) => update({ current_qty: Number(e.target.value) })} 
+                    <input
+                      type="number"
+                      value={form.current_qty ?? 0}
+                      onChange={(e) => update({ current_qty: Number(e.target.value) })}
                       className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-slate-500 focus:border-slate-500 transition-all duration-200 text-lg"
                       placeholder="ระบุจำนวนคงคลัง"
                     />
@@ -734,9 +906,9 @@ export default function StockPlanTablePage() {
                 {/* Action Buttons */}
                 <div className="bg-slate-50 rounded-2xl p-6">
                   <div className="flex flex-wrap gap-4 justify-end">
-                    <button 
-                      className="px-6 py-3 rounded-xl font-medium text-slate-600 bg-white hover:bg-slate-100 transition-all duration-200 border border-slate-300" 
-                      onClick={() => setOpen(false)} 
+                    <button
+                      className="px-6 py-3 rounded-xl font-medium text-slate-600 bg-white hover:bg-slate-100 transition-all duration-200 border border-slate-300"
+                      onClick={() => setOpen(false)}
                       disabled={saving}
                     >
                       ยกเลิก

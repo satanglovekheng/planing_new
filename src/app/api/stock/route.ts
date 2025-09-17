@@ -13,7 +13,9 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
 
-    const depID = Number(body.depID);
+    // NEW: รับเป็น array
+    let depIDs: number[] = Array.isArray(body.depIDs) ? body.depIDs.map((n: any) => Number(n)).filter((n: number) => Number.isFinite(n)) : [];
+
     const q: string = (body.q ?? "").toString().trim();
     const sortKey: SortKey = (body.sortKey as SortKey) || "item_name";
     const sortDir: "asc" | "desc" = body.sortDir === "desc" ? "desc" : "asc";
@@ -21,10 +23,10 @@ export async function POST(req: Request) {
     const pageSize = Math.min(500, Math.max(1, Number(body.pageSize) || 20));
     const offset = (page - 1) * pageSize;
 
-    if (!depID) {
+    if (!depIDs || depIDs.length === 0) {
       return NextResponse.json(
-        { success: false, error: "department_id is required" },
-        { status: 400 }
+        { success: true, data: { rows: [], total: 0, page, pageSize } },
+        { status: 200 }
       );
     }
 
@@ -37,6 +39,7 @@ export async function POST(req: Request) {
     // สร้างคำค้นแบบ ILIKE
     const needle = q ? `%${q}%` : null;
 
+    // ใช้ ANY กับ int[] แทน dep เดี่ยว
     const sql = `
       SELECT
         l.stock_plan_list_id,
@@ -46,7 +49,7 @@ export async function POST(req: Request) {
         COUNT(*) OVER() AS total_count
       FROM stock_dep_plan p
       JOIN stock_dep_plan_list l ON l.stock_plan_id = p.stock_plan_id
-      WHERE p.department_id = $1
+      WHERE p.department_id = ANY($1::int[])
         AND (
           $2::text IS NULL
           OR l.item_name ILIKE $2
@@ -57,7 +60,8 @@ export async function POST(req: Request) {
       LIMIT $3 OFFSET $4
     `;
 
-    const { rows } = await pool.query(sql, [depID, needle, pageSize, offset]);
+    const params = [depIDs, needle, pageSize, offset];
+    const { rows } = await pool.query(sql, params);
 
     const total = rows.length > 0 ? Number(rows[0].total_count) : 0;
 
