@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
 import { Search, X, Edit3, Package2, Calculator, History, TrendingUp, ChevronUp, ChevronDown, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from "lucide-react";
-
+import Sidebar from "./components/Sidebar";
 // ===== Types =====
 type StockRow = {
   stock_plan_list_id: number;
@@ -311,7 +311,8 @@ export default function StockPlanTablePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <div className="flex bg-gradient-to-br from-slate-50 to-blue-50 min-h-screen">
+      <Sidebar />
       <div className="max-w-7xl mx-auto p-6">
         {/* Header */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6">
