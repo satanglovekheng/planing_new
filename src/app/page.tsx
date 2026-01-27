@@ -114,7 +114,7 @@ const toNum = (v: unknown): number => {
 export default function StockPlanTablePage() {
   // ===== control =====
   const depID = localStorage.getItem('officer_id');
-
+  console.log('depID:', depID);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [selectedDeptIds, setSelectedDeptIds] = useState<number[]>([]);
 
@@ -154,6 +154,7 @@ export default function StockPlanTablePage() {
         if (res?.success !== false) {
           const list: Department[] = Array.isArray(res) ? res : res?.data || [];
           setDepartments(list);
+          console.log('departments list:', list);
           // ค่าเริ่มต้น: เลือกทุก department
           setSelectedDeptIds(list.map(d => Number(d.department_id)).filter(Boolean));
         } else {
@@ -213,6 +214,7 @@ export default function StockPlanTablePage() {
         }),
       });
       const json = await res.json();
+      console.log("stock api response:", json);
       if (!alive) return;
       if (json?.success) {
         const payload = json.data;
@@ -256,74 +258,12 @@ export default function StockPlanTablePage() {
     try {
       const res = await fetch(`/api/stock/${row.stock_plan_list_id}`);
       const json = await res.json();
-      console.log(json)
+      console.log("stock_plan_list_id",json)
       const detail: StockPlanDetail = json?.data ?? ({} as any);
 
-      // fallback หาก backend ยังไม่พร้อม ใช้ mock จากตัวอย่าง
-      const fallback: StockPlanDetail = {
-        stock_plan_list_id: row.stock_plan_list_id,
-        stock_plan_id: 29,
-        item_id: 8929,
-        period1_qty: 11,
-        period2_qty: null,
-        period3_qty: null,
-        period4_qty: null,
-        total_qty: 11,
-        hos_guid: null,
-        item_name: row.item_name,
-        item_unit: row.item_unit,
-        period1_amount: "14712.500",
-        period2_amount: null,
-        period3_amount: null,
-        period4_amount: null,
-        total_amount: "14712.500",
-        last_1_year_qty: null,
-        last_2_year_qty: null,
-        last_3_year_qty: null,
-        current_qty: null,
-        unit_cost: "1337.500",
-        inc_percent: null,
-        item_type_name: row.item_type_name,
-        period1_po_qty: null,
-        period2_po_qty: null,
-        period3_po_qty: null,
-        period4_po_qty: null,
-        period1_po_amount: null,
-        period2_po_amount: null,
-        period3_po_amount: null,
-        period4_po_amount: null,
-        total_po_qty: null,
-        total_po_amount: null,
-        year_qty: null,
-        trend_1_yr_b0: null,
-        trend_1_yr_b1: null,
-        trend_3_yr_b0: null,
-        trend_3_yr_b1: null,
-        trend_1_yr_point: null,
-        trend_1_yr_rsd: null,
-        trend_1_yr_r2: null,
-        trend_1_yr_mean: null,
-        trend_1_yr_sd: null,
-        incoming_balance_qty: null,
-        stock_item_unit_id: 8929,
-        unit_qty: 1,
-        manual_calc: null,
-        package_unit_cost: null,
-        package_incoming_balance_qty: null,
-        package_current_qty: null,
-        package_total_qty: null,
-        package_total_amount: null,
-        package_period1_qty: null,
-        package_period2_qty: null,
-        package_period3_qty: null,
-        package_period4_qty: null,
-        forcast_qty: null,
-        stock_sub_class_name: null,
-        stock_class_name: "ยาฉีด",
-        stock_item_ed_type_name: "ยาในบัญชีหลักแห่งชาติ",
-      };
 
-      setForm(Object.keys(detail || {}).length ? detail : fallback);
+
+      setForm(Object.keys(detail || {}).length ? detail : null);
       setOpen(true);
     } catch (e) {
       console.error(e);

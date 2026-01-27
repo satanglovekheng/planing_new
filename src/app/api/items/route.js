@@ -13,6 +13,7 @@ export async function GET() {
   try {
     const pool = getPool();
     const { rows } = await pool.query(sql);
+    console.log('items rows', rows.length);
     return NextResponse.json({ success: true, data: rows });
   } catch (e) {
     console.error('items error', e);

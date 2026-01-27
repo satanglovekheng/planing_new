@@ -49,6 +49,7 @@ type SinglePayload = {
     last_3_year_qty: number | null;
   };
   current_qty: number | null;
+  input_type: string | null;
 };
 
 type BatchPayload = SinglePayload[];
@@ -208,7 +209,6 @@ async function upsertOne(
     period3_amount: asInt(b.periods?.amount?.q3),
     period4_amount: asInt(b.periods?.amount?.q4),
     total_amount: asInt(b.periods?.amount?.total),
-
     last_1_year_qty: asInt(b.history?.last_1_year_qty),
     last_2_year_qty: asInt(b.history?.last_2_year_qty),
     last_3_year_qty: asInt(b.history?.last_3_year_qty),
@@ -217,8 +217,10 @@ async function upsertOne(
     unit_cost: asInt(b.item?.unit_cost),
     stock_item_unit_id: asInt(stock_item_unit_id),
     unit_qty: asInt(b.item?.unit_qty),
+    input_type:  b.input_type,
   };
 
+  console.log("Upsert stock_dep_plan_list_approved:", list);
   if (!list.item_id) {
     return {
       success: false,
@@ -237,9 +239,10 @@ async function upsertOne(
   const existsRes = await q<{ stock_plan_list_id: number }>(client)(
     `
       SELECT stock_plan_list_id
-        FROM stock_dep_plan_list
+        FROM stock_dep_plan_list_approved
        WHERE stock_plan_id = $1
          AND item_id = $2
+         AND status = '0'
          AND COALESCE(stock_item_unit_id,0) = COALESCE($3,0)
        LIMIT 1
     `,
@@ -267,7 +270,7 @@ async function upsertOne(
     const stock_plan_list_id = existsRes.rows[0].stock_plan_list_id;
 
     const updateSql = `
-      UPDATE stock_dep_plan_list
+      UPDATE stock_dep_plan_list_approved
          SET ${setSql}
        WHERE stock_plan_list_id = $${updatableCols.length + 1}
        RETURNING stock_plan_list_id
@@ -295,11 +298,11 @@ async function upsertOne(
   const placeholders = cols.map((_, i) => `$${i + 1}`).join(", ");
 
   const insertListSql = `
-  INSERT INTO stock_dep_plan_list (
-    ${cols.join(", ")}, manual_calc
+  INSERT INTO stock_dep_plan_list_approved (
+    ${cols.join(", ")},status
   )
   VALUES (
-    ${placeholders}, 'Y'
+    ${placeholders},'0'
   )
   RETURNING stock_plan_list_id
 `;

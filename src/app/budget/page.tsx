@@ -12,6 +12,7 @@ type ItemRow = { item_id: number; item_name: string; item_unit: string };
 
 type ItemBasic = {
     item_id: number;
+    item_code: string;
     item_name: string;
     item_unit: string;
     item_type_name: string | null;
@@ -116,6 +117,7 @@ export default function BudgetFormPage() {
                 setSearchError('');
                 const res = await fetch(`/api/items/search?q=${encodeURIComponent(q)}&limit=20`, { signal: ctrl.signal });
                 const json = await res.json();
+                console.log('Search results for', q, json);
                 if (json.success) {
                     setLiveResults(json.data || []);
                     setOpenDropdown(true);
@@ -153,6 +155,7 @@ export default function BudgetFormPage() {
     // เมื่อเลือก item -> โหลด basic + units
     useEffect(() => {
         if (!selectedItemId) return;
+        console.log('Selected item ID:', selectedItemId);
         (async () => {
             const [b, u] = await Promise.all([
                 fetch(`/api/item/${selectedItemId}/basic`).then(r => r.json()),
@@ -160,6 +163,7 @@ export default function BudgetFormPage() {
             ]);
             if (b.success) setBasic(b.data);
             console.log('Item basic:', b);
+            console.log('Item units:', u);
             if (u.success) {
                 console.log('Item units:', u);
                 setUnits(u.data ?? []);
@@ -312,7 +316,6 @@ export default function BudgetFormPage() {
             },
             current_qty: parseNum(currentQty),
         };
-
         try {
             const res = await fetch('/api/budget-requests', {
                 method: 'POST',
@@ -558,6 +561,10 @@ export default function BudgetFormPage() {
                                         ข้อมูลสินค้า
                                     </h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                                    <div className="p-3 bg-slate-50 rounded-lg">
+                                            <span className="font-medium text-slate-600">รหัสสินค้า:</span>
+                                            <div className="text-slate-800 mt-1">{basic.item_code}</div>
+                                        </div>
                                         <div className="p-3 bg-slate-50 rounded-lg">
                                             <span className="font-medium text-slate-600">ชื่อรายการ:</span>
                                             <div className="text-slate-800 mt-1">{basic.item_name}</div>

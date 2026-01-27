@@ -7,7 +7,7 @@ export async function GET(_req, { params }) {
 
   try {
     const baseSql = `
-      SELECT ii.item_id, ii.item_name, ii.item_unit, tp.item_type_name
+      SELECT ii.item_id, ii.item_name, ii.item_unit, tp.item_type_name , ii.item_code
       FROM stock_item ii
       JOIN stock_item_type tp ON tp.item_type = ii.item_type
       WHERE ii.item_use_status = 'Y' AND ii.item_id = $1
@@ -21,7 +21,7 @@ export async function GET(_req, { params }) {
     const base = baseRows[0];
 
     const { rows: classRows } = await pool.query(
-      `SELECT sc.stock_class_name
+      `SELECT sc.stock_class_name 
        FROM stock_item ii
        JOIN stock_class sc ON ii.stock_class_id = sc.stock_class_id
        WHERE ii.item_id = $1
