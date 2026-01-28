@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from "next/navigation";
 import CryptoJS from 'crypto-js';
 
 export default function LoginPage() {
@@ -12,6 +12,9 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get("redirect");
+
 
   // ✅ ตรวจสอบ officer_id ตั้งแต่ตอนเข้า
   useEffect(() => {
@@ -53,12 +56,13 @@ export default function LoginPage() {
       console.log('Login response:', result); // Debugging log
       if (result.success) {
         if (result.data.department_id) {
-          localStorage.setItem('department_id', result.data.department_id.toString());
-          localStorage.setItem('officer_id', result.data.officer_id.toString());
-          localStorage.setItem('department_name', result.data.department_name);
+          localStorage.setItem("department_id", result.data.department_id.toString());
+          localStorage.setItem("officer_id", result.data.officer_id.toString());
+          localStorage.setItem("department_name", result.data.department_name);
         }
-
-        router.push('/budget');
+      
+        // 🔁 กลับไปหน้าที่มาก่อน login
+        router.push(redirect || "/budget");
       } else {
         setError(result.error || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ');
       }
