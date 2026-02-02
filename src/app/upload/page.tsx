@@ -74,7 +74,7 @@ export default function UploadExcelPage() {
             อัปโหลดไฟล์ Excel
           </h1>
           <p className="text-gray-600">
-            อัปโหลดไฟล์ข้อมูลวัสดุทันตกรรมของหน่วยงาน
+            อัปโหลดไฟล์ข้อมูลวัสดุของหน่วยงาน
           </p>
         </div>
 
