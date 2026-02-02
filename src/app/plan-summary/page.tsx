@@ -185,6 +185,7 @@ const PlanSummaryDashboard = () => {
                     <th className="px-6 py-4 text-left text-sm font-semibold">หน่วยงาน</th>
                     <th className="px-6 py-4 text-left text-sm font-semibold">ประเภทพัสดุ</th>
                     <th className="px-6 py-4 text-right text-sm font-semibold">งบประมาณ (บาท)</th>
+                    <th className="px-6 py-4 text-right text-sm font-semibold">ผู้อนุมัติ</th>
                     <th className="px-6 py-4 text-center text-sm font-semibold">จัดการ</th>
                   </tr>
                 </thead>
@@ -198,13 +199,16 @@ const PlanSummaryDashboard = () => {
                       <td className="px-6 py-4 text-sm text-gray-900">{item.bdg_year}</td>
                       <td className="px-6 py-4 text-sm text-gray-700">{item.department_name}</td>
                       <td className="px-6 py-4 text-sm text-gray-700">
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-[#89ba16] bg-opacity-10 text-[#89ba16]">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-[#89ba16] bg-opacity-10 text-white">
                           {item.item_type_name}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-sm text-right font-semibold text-gray-900">
                         {parseFloat(item.total_amount_sum).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
                       </td>
+
+                      <td className="px-6 py-4 text-sm text-gray-900 text-center">{"0/3"}</td>
+
                       <td className="px-6 py-4 text-center">
                         <button
                           onClick={() => fetchDetail(item)}
@@ -255,7 +259,7 @@ const PlanSummaryDashboard = () => {
 
       {/* Detail Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
             {/* Modal Header */}
             <div className="bg-[#008374] text-white px-6 py-4 flex items-center justify-between">
@@ -336,7 +340,7 @@ const PlanSummaryDashboard = () => {
                                   <p className="text-sm text-gray-500">รหัส: {item.item_code}</p>
                                 )}
                               </div>
-                              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-[#89ba16] bg-opacity-10 text-[#89ba16]">
+                              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-[#89ba16] bg-opacity-10 text-white">
                                 #{index + 1}
                               </span>
                             </div>

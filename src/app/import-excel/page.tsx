@@ -61,9 +61,9 @@ type ItemBasicFromAPI = Partial<SaveItemBasic>;
 
 // ======= Column Configs =======
 const COLS_BY_TYPE: Record<ImportType, string[]> = {
-    investment: ["B", "C", "D", "E", "F", "G", "H", "I", "K", "L", "M", "N", "O"],
-    budget: ["B", "C", "D", "E", "F", "G", "H", "I", "J", "L", "M", "N", "O", "P", "Q", "T", "U"],
-    dashboard: ["C", "D", "G", "H", "I", "J", "L", "N", "O", "P"],
+    investment: ["B", "C", "D", "E", "F", "G", "H", "I", "K", "L", "M", "N", "O" , "X"],
+    budget: ["B", "C", "D", "E", "F", "G", "H", "I", "J", "L", "M", "N", "O", "P", "Q", "T", "U", "X"],
+    dashboard: ["C", "D", "G", "H", "I", "J", "L", "N", "O", "P", "X"],
 };
 
 const colLetterToIndex = (letter: string) => {
@@ -182,8 +182,7 @@ export default function Page() {
             }else{
                 setType(importType);
             }
-
-            console.log(importType)
+            
             const res = await fetch("/api/import-excel/check-items", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -198,6 +197,7 @@ export default function Page() {
             const data = await res.json();
             console.log("Check items result:", data);
             setFoundItems(Array.isArray(data.found) ? data.found : []);
+            console.log("Found items:", data.found);
             setNotFoundCodes(Array.isArray(data.notFound) ? data.notFound : []);
             setCheckTotal(data.total ?? codes.length);
         } catch (e: any) {
@@ -208,63 +208,91 @@ export default function Page() {
     }
 
     const collectCodesFromState = (): string[] => {
-        const raw = parsed.flatMap((ps) => ps.rows.map((r) => String((r as any)["C"] ?? "").trim()));
+        const raw = parsed.flatMap((ps) => ps.rows.map((r) => String((r as any)["X"] ?? "").trim()));
         return Array.from(new Set(raw.filter((x) => x !== "")));
     };
 
     function checkItemsFromState() {
         const codes = collectCodesFromState();
+        console.log("Checking items for codes:", codes);
         checkItems(codes);
     }
 
     function parseSelected() {
         if (!workbook || selectedSheets.length === 0) return;
-
+      
+        const CODE_COL = "X"; // ⭐ คอลัมน์ที่ใช้เป็น code หลัก
+      
         const results: ParsedSheet[] = selectedSheets.map((name) => {
-            const ws = workbook.Sheets[name];
-            if (!ws) return { name, rows: [] };
-
-            const data2D: any[][] = XLSX.utils.sheet_to_json(ws, {
-                header: 1,
-                defval: "",
-                blankrows: false,
+          const ws = workbook.Sheets[name];
+          if (!ws) return { name, rows: [] };
+      
+          const data2D: any[][] = XLSX.utils.sheet_to_json(ws, {
+            header: 1,
+            defval: "",
+            blankrows: false,
+            raw: false, // ⭐ สำคัญมาก: ให้ XLSX คืน "ผลลัพธ์ของสูตร"
+          });
+      
+          // ข้าม header 4 แถว
+          const sliced = data2D.slice(4);
+          const rows: RowShape[] = [];
+      
+          for (const row of sliced) {
+            const obj: RowShape = {};
+      
+            // map column จาก index
+            requiredCols.forEach((col, i) => {
+              const idx = requiredIndexes[i];
+              obj[col] = row?.[idx] ?? "";
             });
-
-            const sliced = data2D.slice(4);
-            const rows: RowShape[] = [];
-            
-            for (const row of sliced) {
-                const obj: RowShape = {};
-                requiredCols.forEach((_, i) => {
-                    const idx = requiredIndexes[i];
-                    obj[requiredCols[i]] = row?.[idx] ?? "";
-                });
-                obj.__sheet = name;
-
-                const codeC = String(obj["C"] ?? "").replace(/\u00A0/g, " ").trim();
-                if (codeC === "") continue;
-
-                const hasValue = requiredCols.some((c) => String(obj[c] ?? "").trim() !== "");
-                if (hasValue) rows.push(obj);
-            }
-
-            return { name, rows };
+      
+            obj.__sheet = name;
+      
+            // ✅ อ่านค่า code จากคอลัมน์ X (รองรับสูตร)
+            const code = String(obj[CODE_COL] ?? "")
+              .replace(/\u00A0/g, " ")
+              .trim();
+      
+            // ไม่มี code → ข้าม
+            if (code === "") continue;
+      
+            // อย่างน้อยต้องมีข้อมูลสักคอลัมน์
+            const hasValue = requiredCols.some(
+              (c) => String(obj[c] ?? "").trim() !== ""
+            );
+      
+            if (hasValue) rows.push(obj);
+          }
+      
+          return { name, rows };
         });
-
+      
+        // ====== state reset / update ======
         setParsed(results);
         if (results.length > 0) setPreviewSheet(ALL_SHEETS);
-
+      
         resetCheckResults();
         setPayloadPreview([]);
         setSaveError(null);
         setSaveResultMsg(null);
         setItemBasics({});
-
+      
+        // ====== รวม code จากทุก sheet (ไม่ซ้ำ) ======
         const autoCodes = Array.from(
-            new Set(results.flatMap((ps) => ps.rows.map((r) => String((r as any)["C"] ?? "").trim()).filter((x) => x !== "")))
+          new Set(
+            results.flatMap((ps) =>
+              ps.rows
+                .map((r) => String((r as any)[CODE_COL] ?? "").trim())
+                .filter((x) => x !== "")
+            )
+          )
         );
+      
+        // ส่งไปเช็ก item
         checkItems(autoCodes);
-    }
+      }
+      
 
     function downloadJSON() {
         const payload = parsed.flatMap((ps) => ps.rows);
@@ -352,58 +380,78 @@ export default function Page() {
     };
 
     const findItemByCode = (code: string): FoundItem | undefined =>
-        foundItems.find((fi) => String(fi.item_code).trim() === String(code).trim());
+        foundItems.find((fi) => String(fi.item_id).trim() === String(code).trim());
 
-    async function fetchItemBasic(itemId: number): Promise<ItemBasicFromAPI | null> {
-        try {
-            const res = await fetch(`/api/item/${itemId}/basic`);
-            if (!res.ok) return null;
-            const json = await res.json();
-            const data = json?.data ?? json ?? null;
-            if (!data || typeof data !== "object") return null;
+    // async function fetchItemBasic(itemId: number): Promise<ItemBasicFromAPI | null> {
+    //     try {
+    //         const res = await fetch(`/api/item/${itemId}/basic`);
+    //         if (!res.ok) return null;
+    //         const json = await res.json();
+    //         const data = json?.data ?? json ?? null;
+    //         if (!data || typeof data !== "object") return null;
 
-            const basic: ItemBasicFromAPI = {
-                item_type_name: data.item_type_name ?? null,
-                stock_class_name: data.stock_class_name ?? null,
-                stock_sub_class_name: data.stock_sub_class_name ?? null,
-                stock_item_ed_type_name: data.stock_item_ed_type_name ?? null,
-                item_name: data.item_name ?? null,
-                item_unit: data.item_unit ?? null,
-                item_id: Number(data.item_id ?? itemId) || itemId,
-                item_code: data.item_code ?? null,
-            };
-            return basic;
-        } catch {
-            return null;
-        }
+    //         const basic: ItemBasicFromAPI = {
+    //             item_type_name: data.item_type_name ?? null,
+    //             stock_class_name: data.stock_class_name ?? null,
+    //             stock_sub_class_name: data.stock_sub_class_name ?? null,
+    //             stock_item_ed_type_name: data.stock_item_ed_type_name ?? null,
+    //             item_name: data.item_name ?? null,
+    //             item_unit: data.item_unit ?? null,
+    //             item_id: Number(data.item_id ?? itemId) || itemId,
+    //             item_code: data.item_code ?? null,
+    //         };
+    //         return basic;
+    //     } catch {
+    //         return null;
+    //     }
+    // }
+
+// เพิ่ม function ใหม่
+async function fetchItemBasicsBatch(itemIds: number[]): Promise<Record<number, ItemBasicFromAPI>> {
+    try {
+        const res = await fetch('/api/item/batch-basic', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ item_ids: itemIds })
+        });
+        
+        if (!res.ok) return {};
+        const json = await res.json();
+        
+        return json?.data ?? {};
+    } catch (err) {
+        console.error('fetchItemBasicsBatch error:', err);
+        return {};
     }
+}
 
-    useEffect(() => {
-        if (!foundItems || foundItems.length === 0) return;
-
-        const ids = Array.from(new Set(foundItems.map((f) => f.item_id).filter(Boolean)));
-        const missing = ids.filter((id) => !(id in itemBasics));
-
-        if (missing.length === 0) return;
-
-        (async () => {
-            const results = await Promise.all(missing.map((id) => fetchItemBasic(id)));
-            const merged: Record<number, ItemBasicFromAPI> = {};
-            missing.forEach((id, idx) => {
-                if (results[idx]) merged[id] = results[idx] as ItemBasicFromAPI;
-            });
-            if (Object.keys(merged).length > 0) {
-                setItemBasics((prev) => ({ ...prev, ...merged }));
-            }
-        })();
-    }, [foundItems]);
+// แก้ไข useEffect
+useEffect(() => {
+    if (!foundItems || foundItems.length === 0) return;
+    
+    const ids = Array.from(new Set(foundItems.map((f) => f.item_id).filter(Boolean)));
+    const missing = ids.filter((id) => !(id in itemBasics));
+    
+    if (missing.length === 0) return;
+    
+    (async () => {
+        // ✅ เรียก API ครั้งเดียว แทน N ครั้ง
+        const results = await fetchItemBasicsBatch(missing);
+        
+        if (Object.keys(results).length > 0) {
+            setItemBasics((prev) => ({ ...prev, ...results }));
+        }
+    })();
+}, [foundItems]);;
 
     function buildPayload(): SaveItemPayload[] {
         const allRows = parsed.flatMap((ps) => ps.rows.map((r) => ({ ...r, __sheet: ps.name })));
         const items: SaveItemPayload[] = [];
 
         for (const row of allRows) {
-            const itemCodeC = String((row as any)["C"] ?? "").trim();
+            
+            const itemCodeC = String((row as any)["X"] ?? "").trim();
+            console.log("Processing itemCodeC:", itemCodeC);
             if (!itemCodeC) continue;
 
             const matched = findItemByCode(itemCodeC);
@@ -1059,13 +1107,13 @@ export default function Page() {
                                                                 const extra = itemBasics[it.item_id];
                                                                 return (
                                                                     <li 
-                                                                        key={it.item_code} 
+                                                                        key={it.item_id} 
                                                                         className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg"
                                                                     >
-                                                                        <span className="font-medium">{it.item_code}</span>
+                                                                        <span className="font-medium">{it.item_name}</span>
                                                                         <span className="text-xs text-gray-500">#{it.item_id}</span>
                                                                         {extra?.item_type_name && (
-                                                                            <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-[#008374] bg-opacity-10 text-[#008374]">
+                                                                            <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-[#008374] bg-opacity-10 text-white">
                                                                                 {extra.item_type_name}
                                                                             </span>
                                                                         )}

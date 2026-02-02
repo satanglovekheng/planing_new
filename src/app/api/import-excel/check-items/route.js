@@ -7,7 +7,6 @@ export async function POST(req) {
         const body = await req.json().catch(() => ({}));
         let codes = body?.codes;
         const type = body?.type;
-
         if (!Array.isArray(codes)) {
             return NextResponse.json(
                 { success: false, error: "Invalid payload: 'codes' must be an array" },
@@ -17,11 +16,20 @@ export async function POST(req) {
 
         const cleaned = Array.from(
             new Set(
-                codes
-                    .map((x) => String(x ?? "").trim())
-                    .filter((x) => x !== "")
+              codes
+                .map((x) => {
+                  if (x == null) return "";
+          
+                  return String(x)
+                    .replace(/,/g, "")      // ลบ comma
+                    .replace(/\.00$/, "")   // ตัด .00 ท้าย
+                    .trim();
+                })
+                .filter((x) => x !== "")
             )
-        );
+          );
+          
+          console.log("cleaned codes", cleaned);
 
         if (cleaned.length === 0) {
             return NextResponse.json({
@@ -37,9 +45,9 @@ export async function POST(req) {
         const pool = getPool();
 
         const sql = `
-            SELECT item_code, item_id
+            SELECT item_name, item_id
             FROM stock_item
-            WHERE item_code = ANY($1::text[])
+            WHERE item_id = ANY($1::int[])
         `;
 
         const { rows } = await pool.query(sql, [cleaned]);
@@ -48,7 +56,7 @@ export async function POST(req) {
         // ===== กรณี dashboard =====
         if (type === 'dashboard') {
             const found = rows.map(r => ({
-                item_code: String(r.item_code ?? "").trim(),
+                item_name: r.item_name,
                 item_id: r.item_id
             }));
 
@@ -64,15 +72,15 @@ export async function POST(req) {
 
         // ===== กรณีปกติ =====
         const foundMap = new Map(
-            rows.map(r => [String(r.item_code ?? "").trim(), r.item_id])
-        );
+            rows.map(r => [
+              String(r.item_id),
+              { item_id: r.item_id, item_name: r.item_name }
+            ])
+          );
 
-        const found = cleaned
-            .filter(c => foundMap.has(c))
-            .map(c => ({
-                item_code: c,
-                item_id: foundMap.get(c)
-            }));
+          const found = cleaned
+          .filter(c => foundMap.has(c))
+          .map(c => foundMap.get(c));
 
         const notFound = cleaned.filter(c => !foundMap.has(c));
 

@@ -16,11 +16,10 @@ export default function LoginPage() {
   const redirect = searchParams.get("redirect");
 
 
-  // ✅ ตรวจสอบ officer_id ตั้งแต่ตอนเข้า
   useEffect(() => {
     const officerId = localStorage.getItem('officer_id');
     if (officerId) {
-      router.push('/budget'); // ไปหน้าแรกหรือหน้า dashboard
+      router.push('/budget');
     }
   }, [router]);
 
