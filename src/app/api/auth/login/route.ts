@@ -18,7 +18,7 @@ console.log('Login attempt:',  password.toUpperCase() ); // Hide password in log
 
     // Step 1: Check login credentials and get officer_id
     const loginSql = `
-      SELECT officer_id 
+      SELECT officer_id , officer_name
       FROM "officer" 
       WHERE officer_login_name = $1 AND officer_login_password_md5 = $2
     `;
@@ -80,6 +80,7 @@ console.log('Login attempt:',  password.toUpperCase() ); // Hide password in log
     return NextResponse.json({
       success: true,
       data: {
+        officer_name : loginResult.rows[0].officer_name,
         officer_id: officerId,
         stock_user_id: stockUserId,
         department_id: department.department_id,

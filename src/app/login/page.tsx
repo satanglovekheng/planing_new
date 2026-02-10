@@ -58,11 +58,12 @@ export default function LoginPage() {
           localStorage.setItem("department_id", result.data.department_id.toString());
           localStorage.setItem("officer_id", result.data.officer_id.toString());
           localStorage.setItem("department_name", result.data.department_name);
+          localStorage.setItem("officer_name", result.data.officer_name);
         }
       
         // 🔁 กลับไปหน้าที่มาก่อน login
         router.push(redirect || "/budget");
-      } else {
+      // } else {
         setError(result.error || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ');
       }
     } catch (err) {
@@ -72,6 +73,9 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
+
+
+  
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">

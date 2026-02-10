@@ -17,6 +17,7 @@ export async function GET(req) {
 
   const sql = `
     SELECT
+      stock_plan_list_id,
       stock_plan_id,
       item_id,
       item_name,
