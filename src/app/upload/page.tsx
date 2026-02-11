@@ -289,7 +289,7 @@ export default function UploadExcelPage() {
                                 {/* Department Input */}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-900 mb-2">
-                                        รหัสหน่อยงาน <span className="text-[#89ba16]">*</span>
+                                        รหัสหน่วยงาน <span className="text-[#89ba16]">*</span>
                                     </label>
                                     <div className="relative">
                                         <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
