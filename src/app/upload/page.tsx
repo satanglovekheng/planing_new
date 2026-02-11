@@ -312,7 +312,7 @@ export default function UploadExcelPage() {
                                             value={departmentId}
                                             onChange={(e) => setDepartmentId(e.target.value)}
                                             className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#89ba16] focus:border-[#89ba16] transition-all outline-none text-sm"
-                                            placeholder="รหัสหน่อยงาน"
+                                            placeholder="รหัสหน่วยงาน"
                                         />
                                     </div>
                                 </div>
