@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Navbar from "../components/navbar";
 
 export default function UploadExcelPage() {
     const [department, setDepartment] = useState("");
@@ -70,25 +71,12 @@ export default function UploadExcelPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 py-12 px-4">
+        <div className="">
+            <Navbar />
             <div className="max-w-7xl mx-auto">
                 {/* Header Section - Minimal */}
-                <div className="text-center mb-12">
-                    <div className="inline-flex items-center justify-center w-14 h-14 bg-[#89ba16] rounded-xl mb-4">
-                        <svg
-                            className="w-7 h-7 text-white"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                            />
-                        </svg>
-                    </div>
+                <div className="text-center mb-12 pt-10">
+
                     <h1 className="text-3xl font-semibold text-gray-900 mb-2">
                         อัปโหลดไฟล์ Excel
                     </h1>
