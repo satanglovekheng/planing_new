@@ -25,7 +25,7 @@ export default function AdminTemplatesPage() {
           <div className="flex items-center gap-3 mb-2">
             <div className="w-1.5 h-8 bg-[#89ba16] rounded-full"></div>
             <h1 className="text-3xl font-bold text-gray-900">
-              ไฟล์เทมเพลต
+              ไฟล์หน่วยงาน
             </h1>
           </div>
           <p className="text-gray-600 ml-6">
@@ -77,7 +77,7 @@ export default function AdminTemplatesPage() {
                       className="hover:bg-gray-50 transition-colors duration-150"
                     >
                       <td className="px-6 py-4">
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-[#89ba16] bg-opacity-10 text-[#89ba16]">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-[#89ba16] bg-opacity-10 text-white">
                           {f.code}
                         </span>
                       </td>

@@ -17,27 +17,46 @@ export async function GET(req: Request) {
 
   try {
     const files = fs.readdirSync(templatesDir);
-    console.log("Found files:", files);
-    const result = files
+
+    // แปลงชื่อไฟล์ → object
+    const parsedFiles = files
       .filter(f => f.endsWith(".xls") || f.endsWith(".xlsx"))
       .map(file => {
         const [code, deptName, timestamp, ...rest] = file.split("_");
+        const originalName = rest.join("_");
 
         return {
           file,
           code,
           deptName,
           timestamp: Number(timestamp),
-          originalName: rest.join("_"),
+          originalName,
+          key: `${code}_${deptName}_${originalName}`,
           url: `/uploads/excel/${file}`,
-          size: `${(fs.statSync(path.join(templatesDir, file)).size / 1024).toFixed(0)} KB`
+          size: `${(
+            fs.statSync(path.join(templatesDir, file)).size / 1024
+          ).toFixed(0)} KB`,
         };
       })
-      .filter(f => f.code === deptCode)
-      .sort((a, b) => b.timestamp - a.timestamp); // ล่าสุดก่อน
-      
+      .filter(f => f.code === deptCode);
+
+    // เก็บเฉพาะไฟล์ล่าสุดของแต่ละ key
+    const latestMap = new Map<string, any>();
+
+    for (const f of parsedFiles) {
+      const existing = latestMap.get(f.key);
+      if (!existing || f.timestamp > existing.timestamp) {
+        latestMap.set(f.key, f);
+      }
+    }
+
+    const result = Array.from(latestMap.values()).sort(
+      (a, b) => b.timestamp - a.timestamp
+    );
+
     return NextResponse.json(result);
-  } catch {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json(
       { error: "ไม่สามารถอ่านไฟล์ได้" },
       { status: 500 }
