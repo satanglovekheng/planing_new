@@ -40,10 +40,195 @@ function FileIcon({ name }: { name: string }) {
   );
 }
 
+// Fullscreen download overlay
+function DownloadOverlay({ fileName, progress }: { fileName: string; progress: number }) {
+  return (
+    <div className="download-overlay fixed inset-0 z-50 flex items-center justify-center">
+      {/* Blurred backdrop */}
+      <div className="absolute inset-0 bg-white/70 backdrop-blur-md" />
+
+      {/* Animated background particles */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {[...Array(8)].map((_, i) => (
+          <div
+            key={i}
+            className="particle absolute rounded-full opacity-20"
+            style={{
+              width: `${40 + i * 18}px`,
+              height: `${40 + i * 18}px`,
+              backgroundColor: "#89ba16",
+              left: `${10 + i * 11}%`,
+              top: `${15 + (i % 3) * 25}%`,
+              animationDelay: `${i * 0.3}s`,
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Card */}
+      <div className="relative bg-white rounded-3xl shadow-2xl px-12 py-10 flex flex-col items-center gap-6 w-full max-w-sm mx-4 overlay-card">
+        {/* Icon area */}
+        <div className="relative flex items-center justify-center">
+          {/* Outer pulse ring */}
+          <div
+            className="absolute rounded-full opacity-20 pulse-ring"
+            style={{ width: "100px", height: "100px", backgroundColor: "#89ba16" }}
+          />
+          <div
+            className="absolute rounded-full opacity-10 pulse-ring-2"
+            style={{ width: "130px", height: "130px", backgroundColor: "#89ba16" }}
+          />
+
+          {/* SVG Progress Circle */}
+          <svg width="80" height="80" viewBox="0 0 80 80" className="rotate-[-90deg]">
+            {/* Track */}
+            <circle cx="40" cy="40" r="34" fill="none" stroke="#e8f5cc" strokeWidth="5" />
+            {/* Progress arc */}
+            <circle
+              cx="40" cy="40" r="34"
+              fill="none"
+              stroke="#89ba16"
+              strokeWidth="5"
+              strokeLinecap="round"
+              strokeDasharray={`${2 * Math.PI * 34}`}
+              strokeDashoffset={`${2 * Math.PI * 34 * (1 - progress / 100)}`}
+              style={{ transition: "stroke-dashoffset 0.4s ease" }}
+            />
+          </svg>
+
+          {/* Download arrow icon in center */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <svg className="w-7 h-7 download-arrow" fill="none" viewBox="0 0 24 24" stroke="#89ba16" strokeWidth={2.2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+          </div>
+        </div>
+
+        {/* Text */}
+        <div className="text-center">
+          <p className="text-gray-800 font-bold text-lg leading-tight">กำลังดาวน์โหลด</p>
+          <p className="text-gray-400 text-sm mt-1 max-w-xs truncate px-2">{fileName}</p>
+        </div>
+
+        {/* Progress bar */}
+        <div className="w-full">
+          <div className="flex justify-between text-xs text-gray-400 mb-2">
+            <span>ความคืบหน้า</span>
+            <span className="font-semibold text-[#89ba16]">{Math.round(progress)}%</span>
+          </div>
+          <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full progress-fill"
+              style={{
+                width: `${progress}%`,
+                background: "linear-gradient(90deg, #89ba16, #b5d95a)",
+                transition: "width 0.4s ease",
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Animated dots */}
+        <div className="flex items-center gap-2">
+          {[0, 1, 2, 3, 4].map((i) => (
+            <div
+              key={i}
+              className="rounded-full"
+              style={{
+                width: i === 2 ? "10px" : i === 1 || i === 3 ? "7px" : "5px",
+                height: i === 2 ? "10px" : i === 1 || i === 3 ? "7px" : "5px",
+                backgroundColor: "#89ba16",
+                opacity: i === 2 ? 1 : 0.4,
+                animation: `wave-dot 1.2s ease ${i * 0.15}s infinite`,
+              }}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminTemplatesPage() {
   const [files, setFiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadFileName, setDownloadFileName] = useState("");
+  const [downloadProgress, setDownloadProgress] = useState(0);
+
+  const triggerDownload = async (url: string, name: string) => {
+    setDownloadFileName(name);
+    setDownloadProgress(0);
+    setDownloading(true);
+
+    // Simulate progress
+    const interval = setInterval(() => {
+      setDownloadProgress((prev) => {
+        if (prev >= 90) { clearInterval(interval); return prev; }
+        return prev + Math.random() * 15;
+      });
+    }, 120);
+
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      clearInterval(interval);
+      setDownloadProgress(100);
+
+      await new Promise((r) => setTimeout(r, 500));
+
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(a.href);
+    } catch {
+      clearInterval(interval);
+    }
+
+    await new Promise((r) => setTimeout(r, 400));
+    setDownloading(false);
+    setDownloadProgress(0);
+  };
+
+  const triggerDownloadAll = async () => {
+    setDownloadFileName("ไฟล์ทั้งหมด (ZIP)");
+    setDownloadProgress(0);
+    setDownloading(true);
+
+    const interval = setInterval(() => {
+      setDownloadProgress((prev) => {
+        if (prev >= 85) { clearInterval(interval); return prev; }
+        return prev + Math.random() * 10;
+      });
+    }, 150);
+
+    try {
+      const res = await fetch("/api/templates/admin/download-all");
+      const blob = await res.blob();
+      clearInterval(interval);
+      setDownloadProgress(100);
+
+      await new Promise((r) => setTimeout(r, 500));
+
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "templates.zip";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(a.href);
+    } catch {
+      clearInterval(interval);
+    }
+
+    await new Promise((r) => setTimeout(r, 400));
+    setDownloading(false);
+    setDownloadProgress(0);
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -53,7 +238,7 @@ export default function AdminTemplatesPage() {
         setTimeout(() => {
           setFiles(data);
           setLoading(false);
-        }, 600); // slight delay so skeleton is visible
+        }, 600);
       });
   }, []);
 
@@ -166,9 +351,70 @@ export default function AdminTemplatesPage() {
           box-shadow: 0 4px 16px rgba(0,0,0,0.08);
           transform: translateY(-2px);
         }
+
+        /* ── Fullscreen Download Overlay ── */
+        @keyframes overlay-in {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        .download-overlay {
+          animation: overlay-in 0.25s ease both;
+        }
+
+        @keyframes card-in {
+          from { opacity: 0; transform: scale(0.88) translateY(20px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .overlay-card {
+          animation: card-in 0.35s cubic-bezier(0.34,1.56,0.64,1) both;
+        }
+
+        @keyframes float-particle {
+          0%, 100% { transform: translateY(0px) scale(1); }
+          50% { transform: translateY(-30px) scale(1.1); }
+        }
+        .particle {
+          animation: float-particle 3s ease-in-out infinite;
+        }
+
+        @keyframes pulse-ring-anim {
+          0%, 100% { transform: scale(1); opacity: 0.2; }
+          50% { transform: scale(1.15); opacity: 0.35; }
+        }
+        .pulse-ring {
+          animation: pulse-ring-anim 1.5s ease-in-out infinite;
+        }
+        .pulse-ring-2 {
+          animation: pulse-ring-anim 1.5s ease-in-out 0.3s infinite;
+        }
+
+        @keyframes arrow-bounce {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(4px); }
+        }
+        .download-arrow {
+          animation: arrow-bounce 1s ease-in-out infinite;
+        }
+
+        @keyframes progress-glow {
+          0%, 100% { box-shadow: 0 0 6px rgba(137,186,22,0.4); }
+          50% { box-shadow: 0 0 14px rgba(137,186,22,0.8); }
+        }
+        .progress-fill {
+          animation: progress-glow 1.2s ease-in-out infinite;
+        }
+
+        @keyframes wave-dot {
+          0%, 100% { transform: translateY(0); opacity: 0.4; }
+          50% { transform: translateY(-5px); opacity: 1; }
+        }
       `}</style>
 
       <div className="min-h-screen" style={{ backgroundColor: "#f4f6f0" }}>
+        {/* Fullscreen download overlay */}
+        {downloading && (
+          <DownloadOverlay fileName={downloadFileName} progress={downloadProgress} />
+        )}
         <Navbar />
 
         {/* Header */}
@@ -269,8 +515,8 @@ export default function AdminTemplatesPage() {
                 <p className="text-sm text-gray-500">
                   แสดง <span className="font-semibold text-gray-800">{files.length}</span> ไฟล์
                 </p>
-                <a
-                  href="/api/templates/admin/download-all"
+                <button
+                  onClick={triggerDownloadAll}
                   className="download-btn inline-flex items-center gap-2 px-4 py-2 rounded-lg text-white text-sm font-semibold"
                   style={{ backgroundColor: "#89ba16" }}
                 >
@@ -278,7 +524,7 @@ export default function AdminTemplatesPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m5 5H4" />
                   </svg>
                   ดาวน์โหลดทั้งหมด (ZIP)
-                </a>
+                </button>
               </div>
 
               <div className="overflow-x-auto">
@@ -342,9 +588,8 @@ export default function AdminTemplatesPage() {
                           </div>
                         </td>
                         <td className="px-6 py-4 text-center">
-                          <a
-                            href={f.url}
-                            download
+                          <button
+                            onClick={() => triggerDownload(f.url, f.originalName)}
                             className="download-btn inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-white text-sm font-medium"
                             style={{ backgroundColor: "#89ba16" }}
                           >
@@ -352,7 +597,7 @@ export default function AdminTemplatesPage() {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                             </svg>
                             ดาวน์โหลด
-                          </a>
+                          </button>
                         </td>
                       </tr>
                     ))}
