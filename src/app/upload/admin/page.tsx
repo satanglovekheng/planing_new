@@ -64,16 +64,16 @@ export default function AdminTemplatesPage() {
         ) : (
           <div className="bg-white rounded-lg shadow-sm overflow-hidden">
             <div className="flex justify-end mb-4">
-              <button
-                onClick={downloadAll}
+              <a
+                href="/api/templates/admin/download-all"
                 className="inline-flex items-center gap-2 px-5 py-2 bg-[#89ba16] text-white rounded-lg hover:bg-[#7aa614] transition font-medium text-sm"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    d="M12 10v6m0 0l-3-3m3 3l3-3m5 5H4" />
                 </svg>
-                ดาวน์โหลดทั้งหมด
-              </button>
+                ดาวน์โหลดทั้งหมด (ZIP)
+              </a>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
