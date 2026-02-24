@@ -20,21 +20,31 @@ export async function GET() {
           timestamp: Number(timestamp),
           originalName: rest.join("_"),
           url: `/uploads/excel/${file}`,
-          size: `${(fs.statSync(path.join(templatesDir, file)).size / 1024).toFixed(0)} KB`
+          size: `${(
+            fs.statSync(path.join(templatesDir, file)).size / 1024
+          ).toFixed(0)} KB`
         };
       });
 
-    // เลือกไฟล์ล่าสุดต่อหน่วยงาน
-    const latestByDept: Record<string, any> = {};
+    // ✅ ไม่ซ้ำทั้งหน่วยงาน + ชื่อไฟล์
+    const latestMap = new Map<string, any>();
 
     for (const f of parsed) {
-      if (!latestByDept[f.code] || f.timestamp > latestByDept[f.code].timestamp) {
-        latestByDept[f.code] = f;
+      const key = `${f.code.toLowerCase()}_${f.originalName.toLowerCase()}`;
+
+      const existing = latestMap.get(key);
+      if (!existing || f.timestamp > existing.timestamp) {
+        latestMap.set(key, f);
       }
     }
 
-    return NextResponse.json(Object.values(latestByDept));
-  } catch {
+    return NextResponse.json(
+      Array.from(latestMap.values()).sort(
+        (a, b) => b.timestamp - a.timestamp
+      )
+    );
+  } catch (err) {
+    console.error(err);
     return NextResponse.json(
       { error: "ไม่สามารถอ่านไฟล์ได้" },
       { status: 500 }

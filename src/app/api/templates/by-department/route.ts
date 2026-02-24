@@ -38,7 +38,9 @@ export async function GET(req: Request) {
           ).toFixed(0)} KB`,
         };
       })
-      .filter(f => f.code === deptCode);
+      .filter(
+  f => f.code?.toLowerCase() === deptCode.toLowerCase()
+);
 
     // เก็บเฉพาะไฟล์ล่าสุดของแต่ละ key
     const latestMap = new Map<string, any>();
