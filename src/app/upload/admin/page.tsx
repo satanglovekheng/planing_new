@@ -112,10 +112,10 @@ function DownloadOverlay({ fileName, progress }: { fileName: string; progress: n
 
         {/* Progress bar */}
         <div className="w-full">
-          <div className="flex justify-between text-xs text-gray-400 mb-2">
+          {/* <div className="flex justify-between text-xs text-gray-400 mb-2">
             <span>ความคืบหน้า</span>
             <span className="font-semibold text-[#89ba16]">{Math.round(progress)}%</span>
-          </div>
+          </div> */}
           <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
             <div
               className="h-full rounded-full progress-fill"
@@ -156,6 +156,7 @@ export default function AdminTemplatesPage() {
   const [downloading, setDownloading] = useState(false);
   const [downloadFileName, setDownloadFileName] = useState("");
   const [downloadProgress, setDownloadProgress] = useState(0);
+  const [progress, setProgress] = useState(0);
 
   const triggerDownload = async (url: string, name: string) => {
     setDownloadFileName(name);
@@ -194,41 +195,36 @@ export default function AdminTemplatesPage() {
     setDownloadProgress(0);
   };
 
-  const triggerDownloadAll = async () => {
-    setDownloadFileName("ไฟล์ทั้งหมด (ZIP)");
-    setDownloadProgress(0);
+  async function downloadAll() {
     setDownloading(true);
+    setProgress(0);
 
-    const interval = setInterval(() => {
-      setDownloadProgress((prev) => {
-        if (prev >= 85) { clearInterval(interval); return prev; }
-        return prev + Math.random() * 10;
-      });
-    }, 150);
+    const res = await fetch("/api/templates/admin/download-all");
+    const total = Number(res.headers.get("Content-Length"));
+    const reader = res.body!.getReader();
+    const chunks: Uint8Array[] = [];
+    let received = 0;
 
-    try {
-      const res = await fetch("/api/templates/admin/download-all");
-      const blob = await res.blob();
-      clearInterval(interval);
-      setDownloadProgress(100);
-
-      await new Promise((r) => setTimeout(r, 500));
-
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = "templates.zip";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(a.href);
-    } catch {
-      clearInterval(interval);
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      received += value.byteLength;
+      if (total) setProgress(Math.round((received / total) * 100));
     }
 
-    await new Promise((r) => setTimeout(r, 400));
+    // สร้าง link ดาวน์โหลด
+    const blob = new Blob(chunks, { type: "application/zip" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "templates.zip";
+    a.click();
+    URL.revokeObjectURL(url);
+
     setDownloading(false);
-    setDownloadProgress(0);
-  };
+    setProgress(0);
+  }
 
   useEffect(() => {
     setMounted(true);
@@ -516,14 +512,36 @@ export default function AdminTemplatesPage() {
                   แสดง <span className="font-semibold text-gray-800">{files.length}</span> ไฟล์
                 </p>
                 <button
-                  onClick={triggerDownloadAll}
-                  className="download-btn inline-flex items-center gap-2 px-4 py-2 rounded-lg text-white text-sm font-semibold"
-                  style={{ backgroundColor: "#89ba16" }}
+                  onClick={downloadAll}
+                  disabled={downloading}
+                  className="download-btn inline-flex items-center gap-2 px-4 py-2 rounded-lg text-white text-sm font-semibold relative overflow-hidden"
+                  style={{ backgroundColor: "#89ba16", minWidth: 180 }}
                 >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m5 5H4" />
-                  </svg>
-                  ดาวน์โหลดทั้งหมด (ZIP)
+                  {/* progress fill */}
+                  {downloading && (
+                    <span
+                      className="absolute inset-0 bg-black/20 transition-all duration-150"
+                      style={{ width: `${progress}%` }}
+                    />
+                  )}
+                  <span className="relative flex items-center gap-2">
+                    {downloading ? (
+                      <>
+                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                        </svg>
+                        {progress}%
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m5 5H4" />
+                        </svg>
+                        ดาวน์โหลดทั้งหมด (ZIP)
+                      </>
+                    )}
+                  </span>
                 </button>
               </div>
 

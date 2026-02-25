@@ -6,36 +6,31 @@ import archiver from "archiver";
 export async function GET() {
   const templatesDir = path.join(process.cwd(), "public/uploads/excel");
 
-  const zipPath = path.join(process.cwd(), "tmp");
-  const zipFile = path.join(zipPath, "templates.zip");
+  const files = fs
+    .readdirSync(templatesDir)
+    .filter((f) => f.endsWith(".xls") || f.endsWith(".xlsx"));
 
-  if (!fs.existsSync(zipPath)) {
-    fs.mkdirSync(zipPath);
-  }
+  // zip ลง buffer เพื่อให้รู้ขนาดจริง
+  const buffer = await new Promise<Buffer>((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    const archive = archiver("zip", { zlib: { level: 6 } });
 
-  const output = fs.createWriteStream(zipFile);
-  const archive = archiver("zip", { zlib: { level: 9 } });
+    archive.on("data", (chunk) => chunks.push(chunk));
+    archive.on("end", () => resolve(Buffer.concat(chunks)));
+    archive.on("error", reject);
 
-  archive.pipe(output);
+    for (const file of files) {
+      archive.file(path.join(templatesDir, file), { name: file });
+    }
 
-  const files = fs.readdirSync(templatesDir)
-    .filter(f => f.endsWith(".xls") || f.endsWith(".xlsx"));
+    archive.finalize();
+  });
 
-  for (const file of files) {
-    archive.file(
-      path.join(templatesDir, file),
-      { name: file }
-    );
-  }
-
-  await archive.finalize();
-
-  const zipBuffer = fs.readFileSync(zipFile);
-
-  return new NextResponse(zipBuffer, {
+  return new NextResponse(buffer, {
     headers: {
       "Content-Type": "application/zip",
-      "Content-Disposition": `attachment; filename="templates.zip"`
-    }
+      "Content-Disposition": 'attachment; filename="templates.zip"',
+      "Content-Length": String(buffer.byteLength), // ← ขนาดจริง!
+    },
   });
 }
