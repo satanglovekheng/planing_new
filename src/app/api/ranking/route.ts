@@ -63,9 +63,14 @@ export async function GET() {
 ======================= */
 export async function POST(req: Request) {
   try {
-    const body: RankingUpdate[] = await req.json();
+    const contentType = req.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
+      console.warn("Request Content-Type ไม่ใช่ application/json:", contentType);
+    }
 
-    // ต้องเป็น array เท่านั้น
+    const body: RankingUpdate[] = await req.json();
+    console.log("POST body received:", body);
+
     if (!Array.isArray(body)) {
       return NextResponse.json(
         { message: "รูปแบบข้อมูลไม่ถูกต้อง (ต้องเป็น array)" },
@@ -75,35 +80,70 @@ export async function POST(req: Request) {
 
     const pool = await getPool();
 
-    // SQL สำหรับอัพเดต unit_cost
-    const sql = `
+    const updateSql = `
       UPDATE stock_dep_plan_list_approved
       SET unit_cost = $1
       WHERE stock_plan_list_id = $2 AND stock_plan_id = 0
+    `;
+
+    const checkSql = `
+      SELECT stock_plan_list_id 
+      FROM stock_dep_plan_list_approved 
+      WHERE item_name = $1
+    `;
+
+    const insertSql = `
+      INSERT INTO stock_dep_plan_list_approved (
+        stock_plan_id, item_id, item_name, item_unit, period1_qty, total_qty, item_type_name
+      ) VALUES (
+        0, 0, $1, $2, $3, $4, $5
+      )
     `;
 
     let success = 0;
     let failed: RankingUpdate[] = [];
 
     for (const item of body) {
-      const { stock_plan_list_id, unit_cost } = item;
+      const { stock_plan_list_id, unit_cost, item_name, item_unit, period1_qty, total_qty, item_type_name } = item;
 
-      // validate
-      if (!stock_plan_list_id || unit_cost === undefined || unit_cost === null) {
-        failed.push(item);
-        continue;
-      }
+      console.log("Processing item:", item);
 
       try {
-        const result = await pool.query(sql, [unit_cost, stock_plan_list_id]);
+        let updated = false;
 
-        if (result.rowCount && result.rowCount > 0) {
-          success++;
-        } else {
-          failed.push(item);
+        // ถ้ามี stock_plan_list_id และ unit_cost → ทำ update
+        if (stock_plan_list_id && unit_cost !== undefined && unit_cost !== null) {
+          const updateResult = await pool.query(updateSql, [unit_cost, stock_plan_list_id]);
+          console.log(`Update attempt for ID ${stock_plan_list_id}: rowCount =`, updateResult.rowCount);
+          if (updateResult.rowCount && updateResult.rowCount > 0) {
+            updated = true;
+            success++;
+          }
+        }
+
+        // ถ้า update ไม่ได้ หรือไม่มี stock_plan_list_id → ตรวจสอบ item_name
+        if (!updated) {
+          const checkResult = await pool.query(checkSql, [item_name]);
+          console.log(`Check item_name '${item_name}': rowCount =`, checkResult.rowCount);
+
+          if (checkResult.rowCount === 0) {
+            // insert ใหม่
+            await pool.query(insertSql, [
+              item_name,
+              item_unit || "",
+              period1_qty || 0,
+              total_qty || 0,
+              item_type_name || ""
+            ]);
+            console.log(`Inserted new item: '${item_name}'`);
+            success++;
+          } else {
+            console.warn(`Item exists but update failed: '${item_name}'`);
+            failed.push(item);
+          }
         }
       } catch (itemError) {
-        console.error(`Error updating item ID: ${stock_plan_list_id}`, itemError);
+        console.error(`Error updating/inserting item: '${item_name}'`, itemError);
         failed.push(item);
       }
     }
@@ -115,7 +155,7 @@ export async function POST(req: Request) {
       failed_items: failed.length > 0 ? failed : undefined,
     });
   } catch (error) {
-    console.error("UPDATE ERROR:", error);
+    console.error("POST UPDATE/INSERT ERROR:", error);
     return NextResponse.json(
       { message: "เกิดข้อผิดพลาดในการอัพเดตข้อมูล" },
       { status: 500 }
@@ -130,6 +170,7 @@ export async function POST(req: Request) {
 export async function PUT(req: Request) {
   try {
     const body: { stock_plan_list_ids: number[] } = await req.json();
+    console.log("PUT body received:", body);
 
     if (!Array.isArray(body.stock_plan_list_ids)) {
       return NextResponse.json(
@@ -140,7 +181,6 @@ export async function PUT(req: Request) {
 
     const pool = await getPool();
 
-    // รีเซ็ต unit_cost เป็น NULL
     const sql = `
       UPDATE stock_dep_plan_list_approved
       SET unit_cost = NULL
@@ -148,13 +188,14 @@ export async function PUT(req: Request) {
     `;
 
     const result = await pool.query(sql, [body.stock_plan_list_ids]);
+    console.log("PUT reset result rowCount:", result.rowCount);
 
     return NextResponse.json({
       message: "รีเซ็ตการจัดอันดับเรียบร้อย",
       reset: result.rowCount,
     });
   } catch (error) {
-    console.error("RESET ERROR:", error);
+    console.error("PUT RESET ERROR:", error);
     return NextResponse.json(
       { message: "เกิดข้อผิดพลาดในการรีเซ็ตข้อมูล" },
       { status: 500 }
