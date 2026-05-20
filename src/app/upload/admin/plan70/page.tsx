@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Navbar from "../../components/navbar";
+import Navbar from "../../../components/navbar";
 
 // Skeleton row component
 function SkeletonRow() {
@@ -199,7 +199,7 @@ export default function AdminTemplatesPage() {
     setDownloading(true);
     setProgress(0);
 
-    const res = await fetch("/api/templates/admin/download-all");
+    const res = await fetch("/api/templates/admin/download-all/plan70");
     const total = Number(res.headers.get("Content-Length"));
     const reader = res.body!.getReader();
     const chunks: Uint8Array[] = [];
@@ -228,7 +228,7 @@ export default function AdminTemplatesPage() {
 
   useEffect(() => {
     setMounted(true);
-    fetch("/api/templates/admin")
+    fetch("/api/templates/admin/plan70")
       .then((res) => res.json())
       .then((data) => {
         setTimeout(() => {
@@ -420,7 +420,7 @@ export default function AdminTemplatesPage() {
               <div className="flex items-center gap-4">
                 <div className="w-1.5 h-10 rounded-full header-accent" />
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900 leading-tight">ไฟล์หน่วยงาน แผนปี 2569</h1>
+                  <h1 className="text-2xl font-bold text-gray-900 leading-tight">ไฟล์หน่วยงาน แผนปี 2570</h1>
                   <p className="text-gray-500 text-sm mt-0.5">ไฟล์ล่าสุดของทุกหน่วยงานในระบบ</p>
                 </div>
               </div>
