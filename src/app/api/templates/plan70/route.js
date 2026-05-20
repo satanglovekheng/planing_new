@@ -14,7 +14,7 @@ export async function GET() {
       .map((file, index) => ({
         id: index + 1,
         name: file.replace(".xls", "").replace(".xlsx", ""),
-        url: `/templates/${file}`,
+        url: `/templates/plan70/${file}`,
         size: `${(fs.statSync(path.join(templatesDir, file)).size / 1024).toFixed(0)} KB`,
         folder: "templates"
       }));
