@@ -245,6 +245,17 @@ export default function UploadExcelPage() {
       .catch(() => setSubmissionsLoading(false));
   }, []);
 
+  useEffect(() => {
+    const normalizedDepartmentId = departmentId.trim().toLowerCase();
+
+    if (!normalizedDepartmentId) {
+      setDepartment("");
+      return;
+    }
+
+    setDepartment(ALL_DEPARTMENTS[normalizedDepartmentId] || "");
+  }, [departmentId]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!department || !file || !selectedFileType || !departmentId) {
@@ -598,7 +609,7 @@ export default function UploadExcelPage() {
                     <input
                       type="text"
                       value={departmentId}
-                      onChange={(e) => setDepartmentId(e.target.value)}
+                      onChange={(e) => setDepartmentId(e.target.value.toLowerCase())}
                       className="w-full pl-9 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#89ba16] focus:border-[#89ba16] transition-all outline-none text-xs"
                       placeholder="รหัสหน่วยงาน เช่น a0100"
                     />
@@ -618,7 +629,7 @@ export default function UploadExcelPage() {
                     <input
                       type="text"
                       value={department}
-                      onChange={(e) => setDepartment(e.target.value)}
+                      readOnly
                       className="w-full pl-9 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#89ba16] focus:border-[#89ba16] transition-all outline-none text-xs"
                       placeholder="ระบุชื่อหน่วยงาน"
                     />
