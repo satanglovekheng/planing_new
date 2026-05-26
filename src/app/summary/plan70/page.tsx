@@ -425,8 +425,8 @@ export default function AdminTemplatesPage() {
               <div className="flex items-center gap-4">
                 <div className="w-1.5 h-10 rounded-full header-accent" />
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900 leading-tight">ไฟล์หน่วยงาน แผนปี 2569</h1>
-                  <p className="text-gray-500 text-sm mt-0.5">ไฟล์ล่าสุดของทุกหน่วยงานในระบบ</p>
+                  <h1 className="text-2xl font-bold text-gray-900 leading-tight">รายงานสรุปผลพิจารณาปี 2570</h1>
+                  <p className="text-gray-500 text-sm mt-0.5">ดาวน์โหลดไฟล์สรุปผลการพิจารณาแผนปี 2570 </p>
                 </div>
               </div>
 
