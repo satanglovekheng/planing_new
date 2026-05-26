@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Navbar from "../components/navbar";
+import Sidebar from "../components/Sidebar";
 
 export default function UploadExcelPage() {
     const [department, setDepartment] = useState("");
@@ -71,9 +72,11 @@ export default function UploadExcelPage() {
     }
 
     return (
-        <div className="">
+        <div>
             <Navbar />
-            <div className="max-w-7xl mx-auto">
+            <div className="flex min-h-screen">
+                <Sidebar />
+                <div className="flex-1 max-w-7xl mx-auto px-4">
                 {/* Header Section - Minimal */}
                 <div className="text-center mb-12 pt-10">
 
@@ -520,6 +523,7 @@ export default function UploadExcelPage() {
                         </div>
                     </div>
                 </div>
+            </div>
             </div>
         </div>
     );

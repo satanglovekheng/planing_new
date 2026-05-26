@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Navbar from "../../components/navbar";
+import Sidebar from "../../components/Sidebar";
 
 // Skeleton row component
 function SkeletonRow() {
@@ -406,12 +407,16 @@ export default function AdminTemplatesPage() {
         }
       `}</style>
 
-      <div className="min-h-screen" style={{ backgroundColor: "#f4f6f0" }}>
+      <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#f4f6f0" }}>
         {/* Fullscreen download overlay */}
         {downloading && (
           <DownloadOverlay fileName={downloadFileName} progress={downloadProgress} />
         )}
         <Navbar />
+
+        <div className="flex flex-1">
+          <Sidebar />
+          <div className="flex-1">
 
         {/* Header */}
         <div className="bg-white border-b border-gray-200 shadow-sm">
@@ -624,7 +629,9 @@ export default function AdminTemplatesPage() {
               </div>
             </div>
           )}
+          </div>
         </div>
+      </div>
       </div>
     </>
   );

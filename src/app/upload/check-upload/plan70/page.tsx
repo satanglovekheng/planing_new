@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Navbar from "../../../components/navbar";
+import Sidebar from "../../../components/Sidebar";
 
 export default function DepartmentTemplatesPage() {
   const [deptCode, setDeptCode] = useState("");
@@ -27,8 +28,11 @@ export default function DepartmentTemplatesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-gray-50">
       <Navbar />
+      <div className="flex flex-1">
+        <Sidebar />
+        <div className="flex-1">
       {/* Header */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-5xl mx-auto px-6 py-8">
@@ -187,6 +191,8 @@ export default function DepartmentTemplatesPage() {
             ))}
           </div>
         )}
+          </div>
+        </div>
       </div>
     </div>
   );
