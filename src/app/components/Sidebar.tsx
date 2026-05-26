@@ -161,7 +161,7 @@ export default function Sidebar() {
         </button>
       </div>
 
-      {/* หน้าแรก */}
+      {/* หน้าแรก
       <div className="px-3 pt-3">
         <Link
           href="/"
@@ -179,7 +179,7 @@ export default function Sidebar() {
           </svg>
           {!isCollapsed && <span>หน้าแรก</span>}
         </Link>
-      </div>
+      </div> */}
 
       {/* Nav Items */}
       <nav className="flex-1 overflow-y-auto px-3 py-1 space-y-1">
