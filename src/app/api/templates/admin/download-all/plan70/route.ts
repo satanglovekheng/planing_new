@@ -9,13 +9,33 @@ export async function GET() {
   const files = fs.readdirSync(templatesDir)
     .filter(f => f.endsWith(".xls") || f.endsWith(".xlsx"))
     .map(file => {
-      const [code, deptName, timestamp, ...rest] = file.split("_");
+      const ext = path.extname(file);
+      const nameWithoutExt = path.basename(file, ext);
+      
+      // ใช้ Regex ในการสกัดฟิลด์เพื่อรับรองเครื่องหมายขีดล่างหรือวงเล็บในชื่อหน่วยงาน
+      const match = nameWithoutExt.match(/^([a-zA-Z0-9]+)_(.+?)_(\d{12,14})_(.+)$/);
+
+      let code = "";
+      let timestamp = 0;
+      let originalName = "";
+
+      if (match) {
+        code = match[1];
+        timestamp = parseInt(match[3], 10);
+        originalName = match[4];
+      } else {
+        const parts = nameWithoutExt.split("_");
+        code = parts[0];
+        const timestampStr = parts[2];
+        timestamp = parseInt(timestampStr, 10);
+        originalName = parts.slice(3).join("_") || parts[1];
+      }
 
       return {
         file,
         code,
-        timestamp: Number(timestamp),
-        originalName: rest.join("_"),
+        timestamp: isNaN(timestamp) ? 0 : timestamp,
+        originalName,
         fullPath: path.join(templatesDir, file)
       };
     });

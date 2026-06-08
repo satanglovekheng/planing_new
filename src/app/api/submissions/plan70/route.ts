@@ -227,21 +227,34 @@ function parseFilename(filename: string): FileInfo | null {
   if (ext !== ".xlsx" && ext !== ".xls") return null;
 
   const nameWithoutExt = path.basename(filename, ext);
-  const parts = nameWithoutExt.split("_");
+  
+  // ใช้ Regex ในการค้นหาโครงสร้างรหัสหน่วยงาน ชื่อหน่วยงาน timestamp และประเภทไฟล์
+  // รองรับกรณีที่ชื่อหน่วยงานมีสัญลักษณ์เครื่องหมายวงเล็บหรืออันเดอร์สกอร์ในตัว เช่น e7103_ห้องปฏิบัติการตรวจสวนหัวใจ_(Cath_lab)_
+  const match = nameWithoutExt.match(/^([a-zA-Z0-9]+)_(.+?)_(\d{12,14})_(.+)$/);
 
-  if (parts.length < 3) return null;
+  let departmentId = "";
+  let departmentName = "";
+  let timestamp = 0;
+  let fileType = "";
 
-  const departmentId = parts[0];   // e.g. "62000" or "a0100"
-  const timestampStr = parts[2];   // 3rd segment = timestamp
-  const timestamp = parseInt(timestampStr, 10);
+  if (match) {
+    departmentId = match[1];
+    const rawDeptName = match[2];
+    timestamp = parseInt(match[3], 10);
+    fileType = match[4];
+    departmentName = DEPARTMENTS[departmentId] || rawDeptName.replace(/_/g, " ") || "ไม่ระบุหน่วยงาน";
+  } else {
+    // กรณีที่ไม่ตรง Regex ให้ใช้ split แบบเดิมเป็นทางเลือกสำรอง
+    const parts = nameWithoutExt.split("_");
+    if (parts.length < 3) return null;
+    departmentId = parts[0];
+    const timestampStr = parts[2];
+    timestamp = parseInt(timestampStr, 10);
+    fileType = parts.slice(3).join("_") || parts[1];
+    departmentName = DEPARTMENTS[departmentId] || parts[1].replace(/_/g, " ") || "ไม่ระบุหน่วยงาน";
+  }
 
-  // fileType = everything after timestamp joined back
-  const fileType = parts.slice(3).join("_") || parts[1];
-
-  const departmentName =
-    DEPARTMENTS[departmentId] || parts[1] || "ไม่ระบุหน่วยงาน";
-
-  const uploadedAt = isNaN(timestamp)
+  const uploadedAt = isNaN(timestamp) || timestamp === 0
     ? "ไม่ทราบวันที่"
     : new Date(timestamp).toLocaleString("th-TH", {
         year: "numeric",
@@ -329,14 +342,28 @@ export async function GET() {
         };
       }
       grouped[file.departmentId].files.push(file);
-      grouped[file.departmentId].fileCount++;
     }
 
-    // Sort files within each department (newest first)
-    // Set latestUpload from most recent file
+    // จัดเรียงไฟล์ตามลำดับเวลาล่าสุด และกรองเอาเฉพาะไฟล์ล่าสุดของแต่ละประเภทไฟล์ (Deduplicate)
+    let totalDeduplicatedFiles = 0;
     for (const dept of Object.values(grouped)) {
       dept.files.sort((a, b) => b.timestamp - a.timestamp);
-      dept.latestUpload = dept.files[0]?.uploadedAt || "";
+      
+      const latestFiles: FileInfo[] = [];
+      const seenTypes = new Set<string>();
+      
+      for (const file of dept.files) {
+        const typeKey = file.fileType.toLowerCase();
+        if (!seenTypes.has(typeKey)) {
+          seenTypes.add(typeKey);
+          latestFiles.push(file);
+        }
+      }
+      
+      dept.files = latestFiles;
+      dept.fileCount = latestFiles.length;
+      dept.latestUpload = latestFiles[0]?.uploadedAt || "";
+      totalDeduplicatedFiles += latestFiles.length;
     }
 
     // Sort departments by fileCount descending
@@ -346,7 +373,7 @@ export async function GET() {
 
     return NextResponse.json({
       departments,
-      totalFiles: parsed.length,
+      totalFiles: totalDeduplicatedFiles,
       totalDepartments: departments.length,
     });
   } catch (error) {

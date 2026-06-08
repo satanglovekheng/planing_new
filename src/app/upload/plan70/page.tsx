@@ -832,7 +832,7 @@ export default function UploadExcelPage() {
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <p className="text-sm font-medium text-gray-900 truncate">
-                                                        {file.filename.replace(/^\d+_[^_]+_\d+_/, '')}
+                                                        {file.filename.replace(/^[a-zA-Z0-9]+_.+?_\d{12,14}_/, '')}
                                                     </p>
                                                     <p className="text-xs text-gray-400 mt-0.5">
                                                         {file.fileType} · {file.uploadedAt}

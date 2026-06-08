@@ -22,14 +22,36 @@ export async function GET(req: Request) {
     const parsedFiles = files
       .filter(f => f.endsWith(".xls") || f.endsWith(".xlsx"))
       .map(file => {
-        const [code, deptName, timestamp, ...rest] = file.split("_");
-        const originalName = rest.join("_");
+        const ext = path.extname(file);
+        const nameWithoutExt = path.basename(file, ext);
+        
+        // ใช้ Regex ในการสกัดฟิลด์เพื่อรับรองเครื่องหมายขีดล่างหรือวงเล็บในชื่อหน่วยงาน
+        const match = nameWithoutExt.match(/^([a-zA-Z0-9]+)_(.+?)_(\d{12,14})_(.+)$/);
+
+        let code = "";
+        let deptName = "";
+        let timestamp = 0;
+        let originalName = "";
+
+        if (match) {
+          code = match[1];
+          deptName = match[2];
+          timestamp = parseInt(match[3], 10);
+          originalName = match[4];
+        } else {
+          const parts = nameWithoutExt.split("_");
+          code = parts[0];
+          const timestampStr = parts[2];
+          timestamp = parseInt(timestampStr, 10);
+          deptName = parts[1];
+          originalName = parts.slice(3).join("_") || parts[1];
+        }
 
         return {
           file,
           code,
           deptName,
-          timestamp: Number(timestamp),
+          timestamp: isNaN(timestamp) ? 0 : timestamp,
           originalName,
           key: `${code}_${deptName}_${originalName}`,
           url: `/uploads/excel/plan70/${file}`,
@@ -39,8 +61,8 @@ export async function GET(req: Request) {
         };
       })
       .filter(
-  f => f.code?.toLowerCase() === deptCode.toLowerCase()
-);
+        f => f.code?.toLowerCase() === deptCode.toLowerCase()
+      );
 
     // เก็บเฉพาะไฟล์ล่าสุดของแต่ละ key
     const latestMap = new Map<string, any>();
