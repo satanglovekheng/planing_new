@@ -9,11 +9,8 @@ export async function GET() {
   const files = fs.readdirSync(templatesDir)
     .filter(f => f.endsWith(".xls") || f.endsWith(".xlsx"))
     .map(file => {
-      const ext = path.extname(file);
-      const nameWithoutExt = path.basename(file, ext);
-      
       // ใช้ Regex ในการสกัดฟิลด์เพื่อรับรองเครื่องหมายขีดล่างหรือวงเล็บในชื่อหน่วยงาน
-      const match = nameWithoutExt.match(/^([a-zA-Z0-9]+)_(.+?)_(\d{12,14})_(.+)$/);
+      const match = file.match(/^([a-zA-Z0-9]+)_(.+?)_(\d{12,14})_(.+)$/);
 
       let code = "";
       let timestamp = 0;
@@ -24,7 +21,7 @@ export async function GET() {
         timestamp = parseInt(match[3], 10);
         originalName = match[4];
       } else {
-        const parts = nameWithoutExt.split("_");
+        const parts = file.split("_");
         code = parts[0];
         const timestampStr = parts[2];
         timestamp = parseInt(timestampStr, 10);
