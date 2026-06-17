@@ -173,7 +173,7 @@ export default function AdminTemplatesPage() {
     }, 120);
 
     try {
-      const res = await fetch(url);
+      const res = await fetch(encodeURI(url));
       const blob = await res.blob();
       clearInterval(interval);
       setDownloadProgress(100);
@@ -215,7 +215,7 @@ export default function AdminTemplatesPage() {
     }
 
     // สร้าง link ดาวน์โหลด
-    const blob = new Blob(chunks, { type: "application/zip" });
+    const blob = new Blob(chunks as any, { type: "application/zip" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
